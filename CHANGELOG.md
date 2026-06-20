@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-20
+
+### Added
+
+- **Unified config** — loads from `~/.autonomic/config.toml` via `agent-body-core::organ_config::load("heart")`
+- **Global state dir** — GC timestamps and organ state under `~/.autonomic/state/heart/`
+
+### Changed
+
+- Version bumped from `0.4.0` to `0.5.0`
+
 ## [0.4.0] - 2026-06-20
 
 ### Added
