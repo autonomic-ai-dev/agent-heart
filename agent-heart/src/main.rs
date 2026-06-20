@@ -7,6 +7,7 @@ fn config_path() -> PathBuf {
 
 #[derive(Parser)]
 #[command(name = "agent-heart", about = "Background distillation daemon")]
+#[command(version)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
