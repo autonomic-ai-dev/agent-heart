@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-20
+
+### Added
+
+- **HTTP health endpoint** — axum HTTP server with `/health` and `/gc/status` endpoints on configurable port (default 3101)
+- **Agent-spine client** — `SpineClient` module for registration, heartbeat (30s interval), and event publishing
+- **Concurrent serve** — `agent-heart serve` now starts HTTP server concurrently with MCP server and cron scheduler
+- **Config extended** — `server.port` (default 3101) and `spine.url` (default `http://localhost:3100`) settings
+
+### Changed
+
+- Version bumped from `0.2.0` to `0.3.0`
+
+## [0.2.0] - 2026-06-20
+
+### Added
+
+- **Distill CLI** — `agent-heart distill` runs `agent-brain distill clusters` as a subprocess; delegates cluster distillation to agent-brain
+- **`BrainHandle::call_distill()`** — subprocess call for distill command with output capture
+- **`run_distill_once()`** — library function for one-shot distill execution
+- **Agent registry integration** — heart registers with agent-spine event bus on startup (subject: `agent.heart.beat`)
+
+### Changed
+
+- Version bumped from `0.1.0` to `0.2.0`
+
 ## [0.1.0] - 2026-06-20
 
 ### Added

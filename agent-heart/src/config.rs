@@ -6,6 +6,8 @@ use std::path::PathBuf;
 pub struct Config {
     pub schedule: ScheduleConfig,
     pub brain: BrainConfig,
+    pub server: ServerConfig,
+    pub spine: SpineConfig,
     pub logging: LoggingConfig,
 }
 
@@ -32,6 +34,28 @@ pub struct BrainConfig {
 impl Default for BrainConfig {
     fn default() -> Self {
         Self { binary_path: None }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerConfig {
+    pub port: u16,
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self { port: 3101 }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpineConfig {
+    pub url: String,
+}
+
+impl Default for SpineConfig {
+    fn default() -> Self {
+        Self { url: "http://localhost:3100".into() }
     }
 }
 
@@ -72,6 +96,8 @@ impl Default for Config {
         Self {
             schedule: ScheduleConfig::default(),
             brain: BrainConfig::default(),
+            server: ServerConfig::default(),
+            spine: SpineConfig::default(),
             logging: LoggingConfig::default(),
         }
     }

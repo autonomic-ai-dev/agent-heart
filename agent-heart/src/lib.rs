@@ -2,12 +2,20 @@ pub mod brain_client;
 pub mod config;
 pub mod mcp_server;
 pub mod scheduler;
+pub mod serve;
+pub mod spine;
 
 use anyhow::Result;
 use config::Config;
 
 pub async fn serve(config: Config) -> Result<()> {
     let brain_handle = brain_client::BrainHandle::start(&config).await?;
+    let config_clone = config.clone();
+
+    // Start HTTP server in background
+    let http_handle = tokio::spawn(async move {
+        serve::start_http(config_clone).await.ok();
+    });
 
     // Start MCP server in background
     let mcp_brain = brain_handle.clone();
@@ -24,6 +32,7 @@ pub async fn serve(config: Config) -> Result<()> {
         tokio::signal::ctrl_c().await?;
     }
 
+    http_handle.abort();
     mcp_handle.abort();
     Ok(())
 }
