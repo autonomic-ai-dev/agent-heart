@@ -1,5 +1,12 @@
 # Changelog
 
+## [v] - 2026-06-20
+
+### Added
+- Added Mermaid charts to README
+- Added `--version` flag to CLI parser
+
+
 All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
