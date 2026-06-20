@@ -1,0 +1,81 @@
+name: Reusable build
+
+on:
+  workflow_call:
+    inputs:
+      retention-days:
+        description: Artifact retention in days
+        type: number
+        required: false
+        default: 30
+
+concurrency:
+  group: reusable-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: agent-heart-aarch64-apple-darwin
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            artifact: agent-heart-x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: agent-heart-x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            artifact: agent-heart-aarch64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: agent-heart-x86_64-pc-windows-msvc.exe
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2.9.1
+
+      - name: Build release binary
+        run: cargo build --release -p agent-heart --target ${{ matrix.target }}
+
+      - name: Stage binary
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            cp "target/${{ matrix.target }}/release/agent-heart.exe" "dist/${{ matrix.artifact }}"
+          else
+            cp "target/${{ matrix.target }}/release/agent-heart" "dist/${{ matrix.artifact }}"
+            chmod +x "dist/${{ matrix.artifact }}"
+          fi
+
+      - name: Adhoc sign (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          xattr -cr "dist/${{ matrix.artifact }}"
+          codesign --force --sign - "dist/${{ matrix.artifact }}"
+          codesign --verify --verbose "dist/${{ matrix.artifact }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention-days }}
+

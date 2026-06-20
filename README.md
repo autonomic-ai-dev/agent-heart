@@ -1,92 +1,41 @@
 # agent-heart
 
-**Deterministic background daemon for AI coding agents — API budget enforcement, AST-level safety constraints, and memory distillation cron jobs.**
+**Background distillation daemon for agent-brain — cron-based memory GC and MCP tools for scheduled maintenance.**
 
-agent-heart is the autonomic pulse of the ecosystem. It manages global safety rules, dynamically allocates token budgets across models, and runs background maintenance tasks so that the orchestrator (`agent-spine`) never has to block for cleanup operations. 
+agent-heart is the autonomic pulse of the agent-brain ecosystem. It runs as a lightweight daemon that periodically calls `agent-brain gc` to deduplicate, prune, and compact the memory store, plus serves MCP tools for on-demand GC triggers and status checks.
 
-Rust is the heart; Claude/Cursor are the hands.
+Rust is the heart; agent-brain is the brain.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/autonomic-ai-dev/agent-heart/master/scripts/install.sh | bash -s -- --global
-agent-heart serve --daemon
+# Install (coming soon)
+# agent-heart serve
 ```
-
-**MCP is live immediately** — it runs silently in the background, listening to event buses and hooking into CLI execution paths.
 
 ---
 
 ## Why agent-heart?
 
-When dealing with autonomous coding agents, three critical risks emerge at scale:
-
-1. **Destructive Execution** — Prompting an agent not to delete files is a "soft constraint." Agents will occasionally hallucinate `rm -rf` or destructive database drops.
-2. **Runaway Costs** — A single infinite loop in an agent workflow can burn $50 of Anthropic credits overnight.
-3. **Context Degradation** — Over days of use, the memory vector index (`agent-brain`) gets bloated with overlapping facts, slowing down retrieval.
-
-**agent-heart fixes this with a local background daemon:**
+agent-brain's memory and index store grows over time. Running GC manually is easy to forget, and automating it through IDE hooks is fragile. agent-heart solves this with:
 
 | Problem | agent-heart answer |
 |---------|-------------------|
-| "The agent ran `rm -rf /` by mistake" | **AST-Level Blocking** — intercepts generated shell commands and code to enforce hard safety constraints *before* execution. |
-| "I burned $50 on API calls overnight" | **API Budget Allocation** — dynamically monitors and caps token usage for local and remote models via leaky bucket algorithms. |
-| "Context gets bloated over time" | **Memory Distillation** — runs background cron jobs to analyze and summarize `agent-brain` vectors into denser embeddings. |
+| "I forget to run agent-brain gc" | **Cron scheduler** — runs `agent-brain gc` on configurable schedule (default: daily at 3 AM) |
+| "I need on-demand GC from my IDE" | **MCP tools** — `heart_trigger_gc` and `heart_status` in any MCP host |
+| "I want to check GC status" | **CLI** — `agent-heart status` shows last GC time and schedule |
+
+agent-heart does NOT reimplement memory management. It is a thin scheduler that delegates all GC logic to agent-brain via subprocess CLI calls.
 
 ---
 
-## Architectural Deep Dive
+## Features
 
-Unlike static analysis tools that run on save, `agent-heart` operates as a persistent daemon. 
-
-### 1. The Global Safety Gate
-`agent-heart` intercepts all execution commands dispatched by `agent-spine` or Cursor's MCP terminal.
-- **Shell AST Parsing:** It does not use regex to block commands. It uses full bash AST parsing (via `tree-sitter`) to detect destructive operations, even if obfuscated (e.g., `rm "-r" "-f"`).
-- **Hard Stops:** If a constraint is violated, the execution is instantly rejected and an error payload is returned to the agent, forcing it to rethink.
-
-### 2. Algorithmic Budgeting
-It maintains a local SQLite ledger of token usage.
-- **Leaky Bucket Rate Limiting:** Enforces maximum tokens per minute (TPM) and maximum tokens per day (TPD).
-- **Dynamic Routing:** If Claude 3.5 Sonnet hits its daily budget, `agent-heart` dynamically signals `agent-spine` to failover to local Qwen2.5 for remaining tasks.
-
-### 3. Asynchronous Distillation
-At 3:00 AM local time, the daemon spins up:
-- Pulls cluster data from `agent-brain`.
-- Identifies semantically overlapping facts (e.g., "Use React" and "Use functional components").
-- Triggers a local LLM to rewrite them into a single, highly dense rule.
-
----
-
-## Complete Setup (Copy & Paste)
-
-### 1. Install the binary
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/autonomic-ai-dev/agent-heart/master/scripts/install.sh | bash -s -- --global
-```
-
-### 2. Configuration (`~/.agent_heart/config.yaml`)
-
-```yaml
-daemon:
-  pulse_interval_secs: 60
-  auto_start: true
-
-budgeting:
-  anthropic_daily_usd_limit: 5.00
-  local_fallback: true
-
-safety:
-  block_destructive_bash: true
-  block_network_egress: false
-  allowed_directories:
-    - ~/workspace/
-```
-
-### 3. Verify
-
-```bash
-agent-heart version
-agent-heart status      # Shows daemon uptime and current budget
-```
+| Feature | What it does |
+|---------|-------------|
+| **Cron scheduling** | Runs `agent-brain gc` on configurable cron expression (default: `0 3 * * *`) |
+| **MCP server** | Exposes `heart_trigger_gc` (run GC) and `heart_status` (daemon info) via stdio MCP |
+| **One-shot GC** | `agent-heart gc` runs a single GC pass and prints JSON stats |
+| **Config file** | `~/.config/agent-heart/config.yaml` — auto-created with defaults |
+| **State tracking** | Writes `last_gc.txt` timestamp after each successful GC run |
 
 ---
 
@@ -94,19 +43,38 @@ agent-heart status      # Shows daemon uptime and current budget
 
 | Command | Description |
 |---------|-------------|
-| `agent-heart serve` | Start the background daemon (blocking) |
-| `agent-heart limits` | View current token budgets and usage |
-| `agent-heart rules` | List active AST safety constraints |
-| `agent-heart distill`| Manually trigger a memory compression run |
+| `agent-heart serve` | Start daemon: MCP server + cron scheduler |
+| `agent-heart gc` | Run one-shot GC pass and print stats |
+| `agent-heart status` | Show daemon config, schedule, and last GC timestamp |
+
+---
+
+## Configuration (`~/.config/agent-heart/config.yaml`)
+
+```yaml
+schedule:
+  cron: "0 3 * * *"
+  enabled: true
+
+brain:
+  binary_path: ""   # optional, auto-discovered
+
+logging:
+  level: info
+  file: ~/.local/share/agent-heart/agent-heart.log
+```
+
+The `brain.binary_path` is optional — agent-heart finds agent-brain via config, well-known paths, `which`, and `$HOME/.cargo/bin/`.
 
 ---
 
 ## Development
 
 ```bash
-cargo test --release -p agent-heart
 cargo build --release -p agent-heart
+cargo test --release -p agent-heart
 ```
 
 ## License
+
 MIT
