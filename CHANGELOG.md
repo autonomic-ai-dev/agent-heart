@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-20
+
+### Added
+
+- **Static Bash linter** — `agent-heart lint script.sh` parses bash scripts with tree-sitter-bash and checks for unsafe patterns (rm -rf, eval, hardcoded secrets, long lines)
+
+### Changed
+
+- Version bumped from `0.3.0` to `0.4.0`
+
 ## [0.3.0] - 2026-06-20
 
 ### Added

@@ -22,6 +22,11 @@ enum Commands {
     Distill,
     /// Show daemon status
     Status,
+    /// Lint a bash script for common issues
+    Lint {
+        /// Path to the script to lint
+        script: std::path::PathBuf,
+    },
 }
 
 #[tokio::main]
@@ -50,6 +55,9 @@ async fn main() -> anyhow::Result<()> {
                 config.schedule.cron, config.schedule.enabled
             );
             println!("  last_gc: {}", last_gc);
+        }
+        Commands::Lint { script } => {
+            agent_heart::lint::lint_script(&script)?;
         }
     }
     Ok(())
