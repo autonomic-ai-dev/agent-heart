@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-20
+
+### Added
+
+- **Nightly finetune cron** — 04:00 job runs `agent-brain dataset pipeline` then `agent-muscle train` on merged JSONL
+
 ## [0.5.0] - 2026-06-20
 
 ### Added

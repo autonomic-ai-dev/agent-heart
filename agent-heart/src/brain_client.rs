@@ -83,6 +83,28 @@ impl BrainHandle {
         Ok(stats)
     }
 
+    pub async fn call_dataset_pipeline(&self) -> Result<Value> {
+        let binary = self
+            .binary
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("agent-brain binary not found"))?;
+
+        let child = Command::new(binary)
+            .args(["dataset", "pipeline"])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .map_err(|e| anyhow::anyhow!("Failed to run agent-brain dataset pipeline: {}", e))?;
+
+        let output = child.wait_with_output().await?;
+        if !output.status.success() {
+            anyhow::bail!("agent-brain dataset pipeline failed");
+        }
+
+        let stats: Value = serde_json::from_slice(&output.stdout)?;
+        Ok(stats)
+    }
+
     pub async fn shutdown(&self) {
         // Process exits on its own — nothing to clean up
     }

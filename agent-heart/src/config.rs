@@ -5,6 +5,7 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub schedule: ScheduleConfig,
+    pub finetune: FinetuneConfig,
     pub brain: BrainConfig,
     pub server: ServerConfig,
     pub spine: SpineConfig,
@@ -22,6 +23,25 @@ impl Default for ScheduleConfig {
         Self {
             cron: "0 3 * * *".into(),
             enabled: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FinetuneConfig {
+    pub enabled: bool,
+    pub cron: String,
+    pub dataset_dir: Option<String>,
+    pub muscle_binary: Option<String>,
+}
+
+impl Default for FinetuneConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            cron: "0 4 * * *".into(),
+            dataset_dir: None,
+            muscle_binary: None,
         }
     }
 }
@@ -55,7 +75,9 @@ pub struct SpineConfig {
 
 impl Default for SpineConfig {
     fn default() -> Self {
-        Self { url: "http://localhost:3100".into() }
+        Self {
+            url: "http://localhost:3100".into(),
+        }
     }
 }
 
@@ -78,6 +100,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             schedule: ScheduleConfig::default(),
+            finetune: FinetuneConfig::default(),
             brain: BrainConfig::default(),
             server: ServerConfig::default(),
             spine: SpineConfig::default(),

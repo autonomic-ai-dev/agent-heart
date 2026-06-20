@@ -1,6 +1,7 @@
 pub mod brain_client;
-pub mod lint;
 pub mod config;
+pub mod finetune;
+pub mod lint;
 pub mod mcp_server;
 pub mod scheduler;
 pub mod serve;
