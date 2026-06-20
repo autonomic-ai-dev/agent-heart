@@ -46,6 +46,43 @@ impl BrainHandle {
         Ok(stats)
     }
 
+    pub async fn call_distill(&self, threshold: f64, dry_run: bool) -> Result<Value> {
+        let binary = self
+            .binary
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("agent-brain binary not found"))?;
+
+        let mut cmd = Command::new(binary);
+        cmd.arg("distill")
+            .arg("clusters")
+            .arg("--threshold")
+            .arg(threshold.to_string())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit());
+
+        if dry_run {
+            cmd.arg("--dry-run");
+        }
+
+        let child = cmd
+            .spawn()
+            .map_err(|e| anyhow::anyhow!("Failed to run agent-brain distill clusters: {}", e))?;
+
+        let output = child.wait_with_output().await?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!(
+                "agent-brain distill clusters exited with {}: {}",
+                output.status,
+                stderr
+            );
+        }
+
+        let stats: Value = serde_json::from_slice(&output.stdout)?;
+        Ok(stats)
+    }
+
     pub async fn shutdown(&self) {
         // Process exits on its own — nothing to clean up
     }

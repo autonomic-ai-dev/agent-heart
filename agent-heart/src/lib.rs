@@ -35,3 +35,11 @@ pub async fn run_gc_once(config: Config) -> Result<()> {
     handle.shutdown().await;
     Ok(())
 }
+
+pub async fn run_distill_once(config: Config) -> Result<()> {
+    let handle = brain_client::BrainHandle::start(&config).await?;
+    let stats = handle.call_distill(0.95, false).await?;
+    println!("{}", serde_json::to_string_pretty(&stats)?);
+    handle.shutdown().await;
+    Ok(())
+}

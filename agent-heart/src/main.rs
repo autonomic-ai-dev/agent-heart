@@ -18,6 +18,8 @@ enum Commands {
     Serve,
     /// Run GC once and exit
     Gc,
+    /// Run cluster distillation once and exit
+    Distill,
     /// Show daemon status
     Status,
 }
@@ -34,6 +36,7 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Serve => agent_heart::serve(config).await?,
         Commands::Gc => agent_heart::run_gc_once(config).await?,
+        Commands::Distill => agent_heart::run_distill_once(config).await?,
         Commands::Status => {
             let state_dir = dirs::state_dir()
                 .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
