@@ -4,6 +4,13 @@
 
 `agent-heart` runs periodic `agent-brain gc`, exposes predictive token budgeting for agent-spine, and registers on the spine event bus. It does not duplicate brain logic; it orchestrates it on a schedule.
 
+```mermaid
+flowchart TD
+    Cron[Cron Scheduler] --> GC[agent-brain gc]
+    Cron --> Budget[Token Budgeting]
+    Budget --> Spine[agent-spine<br>Approval Gate]
+```
+
 Standalone: `agent-heart gc` · Integrated: supervised by `autonomic start` on port **3101**.
 
 ---
