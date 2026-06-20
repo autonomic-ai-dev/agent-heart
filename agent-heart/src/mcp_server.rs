@@ -64,9 +64,7 @@ impl HeartMcp {
     #[tool(description = "Show agent-heart daemon status")]
     async fn heart_status(&self) -> Result<CallToolResult, McpError> {
         let now = chrono::Utc::now().to_rfc3339();
-        let state_dir = dirs::state_dir()
-            .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
-            .join("agent-heart");
+        let state_dir = crate::config::state_dir();
         let last_gc = std::fs::read_to_string(state_dir.join("last_gc.txt"))
             .unwrap_or_else(|_| "never".to_string());
 

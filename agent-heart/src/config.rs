@@ -74,23 +74,6 @@ impl Default for LoggingConfig {
     }
 }
 
-impl Config {
-    pub fn load() -> Result<Self> {
-        let path = config_path();
-        if path.exists() {
-            let content = std::fs::read_to_string(&path)?;
-            Ok(serde_yaml::from_str(&content)?)
-        } else {
-            let cfg = Config::default();
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
-            std::fs::write(&path, serde_yaml::to_string(&cfg)?)?;
-            Ok(cfg)
-        }
-    }
-}
-
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -103,7 +86,16 @@ impl Default for Config {
     }
 }
 
+impl Config {
+    pub fn load() -> Result<Self> {
+        agent_body_core::organ_config::load("heart")
+    }
+}
+
 pub fn config_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-    PathBuf::from(&home).join(".config/agent-heart/config.yaml")
+    agent_body_core::config_path()
+}
+
+pub fn state_dir() -> PathBuf {
+    agent_body_core::organ_state_dir("heart")
 }

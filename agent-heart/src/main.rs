@@ -43,9 +43,7 @@ async fn main() -> anyhow::Result<()> {
         Commands::Gc => agent_heart::run_gc_once(config).await?,
         Commands::Distill => agent_heart::run_distill_once(config).await?,
         Commands::Status => {
-            let state_dir = dirs::state_dir()
-                .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
-                .join("agent-heart");
+            let state_dir = agent_heart::config::state_dir();
             let last_gc = std::fs::read_to_string(state_dir.join("last_gc.txt"))
                 .unwrap_or_else(|_| "never".into());
             println!("agent-heart status");

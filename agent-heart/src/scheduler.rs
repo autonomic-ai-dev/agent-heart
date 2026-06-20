@@ -16,9 +16,7 @@ pub async fn start(config: &Config, brain: BrainHandle) -> Result<JobScheduler> 
             match brain.call_gc(0.3, 90).await {
                 Ok(stats) => {
                     info!("GC complete: {}", stats);
-                    let state_dir = dirs::state_dir()
-                        .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
-                        .join("agent-heart");
+                    let state_dir = crate::config::state_dir();
                     std::fs::create_dir_all(&state_dir).ok();
                     let _ = std::fs::write(
                         state_dir.join("last_gc.txt"),

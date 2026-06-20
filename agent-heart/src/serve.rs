@@ -37,9 +37,7 @@ async fn health(State(_): State<Arc<AppState>>) -> Json<serde_json::Value> {
 }
 
 async fn gc_status(State(_): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    let state_dir = dirs::state_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
-        .join("agent-heart");
+    let state_dir = crate::config::state_dir();
     let last_gc = std::fs::read_to_string(state_dir.join("last_gc.txt"))
         .unwrap_or_else(|_| "never".to_string());
     Json(serde_json::json!({

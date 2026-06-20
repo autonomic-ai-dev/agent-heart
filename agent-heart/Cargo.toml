@@ -4,6 +4,7 @@ version = "0.4.0"
 edition = "2021"
 
 [dependencies]
+agent-body-core = { git = "https://github.com/autonomic-ai-dev/agent-body" }
 anyhow = "1"
 axum = "0.7"
 chrono = "0.4"
