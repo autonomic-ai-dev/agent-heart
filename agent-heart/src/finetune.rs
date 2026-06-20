@@ -9,8 +9,19 @@ use crate::config::FinetuneConfig;
 
 pub async fn run_nightly_finetune(brain: &BrainHandle, config: &FinetuneConfig) -> Result<()> {
     info!("Nightly finetune: building dataset via agent-brain");
-    let pipeline = brain.call_dataset_pipeline().await?;
+    let pipeline = brain.call_dataset_pipeline(Some(config)).await?;
     info!("Dataset pipeline: {}", pipeline);
+
+    let merged_count = pipeline
+        .get("merged_entries")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    if merged_count < config.min_merged_entries {
+        anyhow::bail!(
+            "merged dataset has {merged_count} entries (min {})",
+            config.min_merged_entries
+        );
+    }
 
     let merged = pipeline
         .get("merged_path")

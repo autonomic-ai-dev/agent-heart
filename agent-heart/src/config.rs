@@ -33,6 +33,11 @@ pub struct FinetuneConfig {
     pub cron: String,
     pub dataset_dir: Option<String>,
     pub muscle_binary: Option<String>,
+    pub verify_ui_url: Option<String>,
+    pub verify_memory_script: Option<String>,
+    pub ui_threshold: f64,
+    pub memory_threshold_kb: u64,
+    pub min_merged_entries: u64,
 }
 
 impl Default for FinetuneConfig {
@@ -42,6 +47,11 @@ impl Default for FinetuneConfig {
             cron: "0 4 * * *".into(),
             dataset_dir: None,
             muscle_binary: None,
+            verify_ui_url: None,
+            verify_memory_script: None,
+            ui_threshold: 1.0,
+            memory_threshold_kb: 524_288,
+            min_merged_entries: 1,
         }
     }
 }

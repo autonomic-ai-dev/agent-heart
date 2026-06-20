@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-06-20
+
+### Added
+
+- **`agent-heart finetune`** one-shot CLI — runs gated dataset pipeline then MLX training
+- **`agent-heart distill`** now ingests spine execution graphs before cluster distillation
+
+### Changed
+
+- Finetune config supports UI/memory gates and `min_merged_entries`
+
 ## [0.6.0] - 2026-06-20
 
 ### Added

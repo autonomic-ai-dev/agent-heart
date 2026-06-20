@@ -5,7 +5,7 @@ use std::process::Stdio;
 use tokio::process::Command;
 use tracing::info;
 
-use crate::config::Config;
+use crate::config::{Config, FinetuneConfig};
 
 #[derive(Clone)]
 pub struct BrainHandle {
@@ -83,14 +83,28 @@ impl BrainHandle {
         Ok(stats)
     }
 
-    pub async fn call_dataset_pipeline(&self) -> Result<Value> {
+    pub async fn call_dataset_pipeline(&self, finetune: Option<&FinetuneConfig>) -> Result<Value> {
         let binary = self
             .binary
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("agent-brain binary not found"))?;
 
-        let child = Command::new(binary)
-            .args(["dataset", "pipeline"])
+        let mut cmd = Command::new(binary);
+        cmd.arg("dataset").arg("pipeline");
+
+        if let Some(cfg) = finetune {
+            if let Some(url) = &cfg.verify_ui_url {
+                cmd.arg("--verify-ui").arg(url);
+                cmd.arg("--ui-threshold").arg(cfg.ui_threshold.to_string());
+            }
+            if let Some(script) = &cfg.verify_memory_script {
+                cmd.arg("--verify-memory-script").arg(script);
+                cmd.arg("--memory-threshold-kb")
+                    .arg(cfg.memory_threshold_kb.to_string());
+            }
+        }
+
+        let child = cmd
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
             .spawn()

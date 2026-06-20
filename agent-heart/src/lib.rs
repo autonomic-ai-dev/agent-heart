@@ -49,8 +49,17 @@ pub async fn run_gc_once(config: Config) -> Result<()> {
 
 pub async fn run_distill_once(config: Config) -> Result<()> {
     let handle = brain_client::BrainHandle::start(&config).await?;
+    let pipeline = handle.call_dataset_pipeline(Some(&config.finetune)).await?;
+    println!("{}", serde_json::to_string_pretty(&pipeline)?);
     let stats = handle.call_distill(0.95, false).await?;
     println!("{}", serde_json::to_string_pretty(&stats)?);
+    handle.shutdown().await;
+    Ok(())
+}
+
+pub async fn run_finetune_once(config: Config) -> Result<()> {
+    let handle = brain_client::BrainHandle::start(&config).await?;
+    finetune::run_nightly_finetune(&handle, &config.finetune).await?;
     handle.shutdown().await;
     Ok(())
 }

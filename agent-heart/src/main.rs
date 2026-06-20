@@ -20,6 +20,8 @@ enum Commands {
     Gc,
     /// Run cluster distillation once and exit
     Distill,
+    /// Run dataset pipeline + MLX finetune once and exit
+    Finetune,
     /// Show daemon status
     Status,
     /// Lint a bash script for common issues
@@ -42,9 +44,12 @@ async fn main() -> anyhow::Result<()> {
         Commands::Serve => agent_heart::serve(config).await?,
         Commands::Gc => agent_heart::run_gc_once(config).await?,
         Commands::Distill => agent_heart::run_distill_once(config).await?,
+        Commands::Finetune => agent_heart::run_finetune_once(config).await?,
         Commands::Status => {
             let state_dir = agent_heart::config::state_dir();
             let last_gc = std::fs::read_to_string(state_dir.join("last_gc.txt"))
+                .unwrap_or_else(|_| "never".into());
+            let last_finetune = std::fs::read_to_string(state_dir.join("last_finetune.txt"))
                 .unwrap_or_else(|_| "never".into());
             println!("agent-heart status");
             println!("  config: {}", config_path().display());
@@ -52,7 +57,12 @@ async fn main() -> anyhow::Result<()> {
                 "  schedule: {} (enabled: {})",
                 config.schedule.cron, config.schedule.enabled
             );
+            println!(
+                "  finetune: {} (enabled: {}, min_entries: {})",
+                config.finetune.cron, config.finetune.enabled, config.finetune.min_merged_entries
+            );
             println!("  last_gc: {}", last_gc);
+            println!("  last_finetune: {}", last_finetune);
         }
         Commands::Lint { script } => {
             agent_heart::lint::lint_script(&script)?;
