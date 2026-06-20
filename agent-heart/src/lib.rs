@@ -6,6 +6,7 @@ pub mod mcp_server;
 pub mod scheduler;
 pub mod serve;
 pub mod spine;
+pub mod token_budget;
 
 use anyhow::Result;
 use config::Config;

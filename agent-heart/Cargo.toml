@@ -1,6 +1,6 @@
 [package]
 name = "agent-heart"
-version = "0.6.1"
+version = "0.7.0"
 edition = "2021"
 
 [dependencies]
@@ -12,6 +12,7 @@ clap = { version = "4", features = ["derive"] }
 dirs = "5"
 reqwest = { version = "0.12", features = ["json"] }
 rmcp = { version = "0.1", features = ["server", "client", "transport-io"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
 schemars = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -22,3 +23,6 @@ tracing = "0.1"
 tree-sitter = "0.26"
 tree-sitter-bash = "0.25"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tempfile = "3"

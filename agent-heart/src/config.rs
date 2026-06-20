@@ -7,6 +7,7 @@ pub struct Config {
     pub schedule: ScheduleConfig,
     pub finetune: FinetuneConfig,
     pub brain: BrainConfig,
+    pub token_budget: TokenBudgetConfig,
     pub server: ServerConfig,
     pub spine: SpineConfig,
     pub logging: LoggingConfig,
@@ -68,6 +69,29 @@ impl Default for BrainConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenBudgetConfig {
+    pub enabled: bool,
+    pub max_tokens_per_route: u64,
+    pub anomaly_multiplier: f64,
+    pub lookback_days: u32,
+    pub min_samples: u64,
+    pub brain_db_path: Option<String>,
+}
+
+impl Default for TokenBudgetConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            max_tokens_per_route: 8000,
+            anomaly_multiplier: 2.5,
+            lookback_days: 7,
+            min_samples: 5,
+            brain_db_path: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
     pub port: u16,
 }
@@ -112,6 +136,7 @@ impl Default for Config {
             schedule: ScheduleConfig::default(),
             finetune: FinetuneConfig::default(),
             brain: BrainConfig::default(),
+            token_budget: TokenBudgetConfig::default(),
             server: ServerConfig::default(),
             spine: SpineConfig::default(),
             logging: LoggingConfig::default(),

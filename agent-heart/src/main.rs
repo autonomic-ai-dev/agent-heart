@@ -29,6 +29,24 @@ enum Commands {
         /// Path to the script to lint
         script: std::path::PathBuf,
     },
+    /// Predictive token budget tools (reads agent-brain retrieval_log)
+    Budget {
+        #[command(subcommand)]
+        command: BudgetCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum BudgetCommands {
+    /// Show historical token stats from brain.db
+    Stats,
+    /// Check whether a route would be allowed
+    Check {
+        #[arg(long, default_value = "implementing")]
+        phase: String,
+        #[arg(long)]
+        tokens: u64,
+    },
 }
 
 #[tokio::main]
@@ -63,10 +81,36 @@ async fn main() -> anyhow::Result<()> {
             );
             println!("  last_gc: {}", last_gc);
             println!("  last_finetune: {}", last_finetune);
+            println!(
+                "  token_budget: enabled={} ceiling={} anomaly_x={}",
+                config.token_budget.enabled,
+                config.token_budget.max_tokens_per_route,
+                config.token_budget.anomaly_multiplier
+            );
         }
         Commands::Lint { script } => {
             agent_heart::lint::lint_script(&script)?;
         }
+        Commands::Budget { command } => match command {
+            BudgetCommands::Stats => {
+                let report = agent_heart::token_budget::load_stats(&config.token_budget)?;
+                println!("{}", serde_json::to_string_pretty(&report)?);
+            }
+            BudgetCommands::Check { phase, tokens } => {
+                let resp = agent_heart::token_budget::check_budget(
+                    &config.token_budget,
+                    &agent_heart::token_budget::BudgetCheckRequest {
+                        phase,
+                        estimated_tokens: tokens,
+                        task_kind: None,
+                    },
+                )?;
+                println!("{}", serde_json::to_string_pretty(&resp)?);
+                if !resp.allowed {
+                    std::process::exit(1);
+                }
+            }
+        },
     }
     Ok(())
 }

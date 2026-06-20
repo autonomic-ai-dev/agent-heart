@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-20
+
+### Added
+
+- **Predictive token budgeting** — reads `~/.autonomic/memory/brain.db` retrieval_log history (p95 + anomaly multiplier)
+- **`agent-heart budget stats|check`** CLI and HTTP `/budget/stats`, `/budget/check`
+- **Spine gate event** — frozen routes publish `heart.budget.frozen` via agent-spine events API
+
 ## [0.6.1] - 2026-06-20
 
 ### Added

@@ -1,8 +1,9 @@
-use axum::{extract::State, routing::get, Json, Router};
+use axum::{extract::State, routing::{get, post}, Json, Router};
 use std::sync::Arc;
 
 use crate::config::Config;
 use crate::spine::SpineClient;
+use crate::token_budget::{self, BudgetCheckRequest};
 
 pub struct AppState {
     pub config: Config,
@@ -24,6 +25,8 @@ pub async fn start_http(config: Config) -> anyhow::Result<()> {
     let app = Router::new()
         .route("/health", get(health))
         .route("/gc/status", get(gc_status))
+        .route("/budget/stats", get(budget_stats))
+        .route("/budget/check", post(budget_check))
         .with_state(state);
     let addr = format!("0.0.0.0:{}", port);
     tracing::info!("HTTP server listening on {}", addr);
@@ -32,8 +35,11 @@ pub async fn start_http(config: Config) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn health(State(_): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    Json(serde_json::json!({"status": "ok"}))
+async fn health(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "status": "ok",
+        "token_budget_enabled": state.config.token_budget.enabled,
+    }))
 }
 
 async fn gc_status(State(_): State<Arc<AppState>>) -> Json<serde_json::Value> {
@@ -44,4 +50,36 @@ async fn gc_status(State(_): State<Arc<AppState>>) -> Json<serde_json::Value> {
         "last_gc": last_gc,
         "version": env!("CARGO_PKG_VERSION"),
     }))
+}
+
+async fn budget_stats(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    match token_budget::load_stats(&state.config.token_budget) {
+        Ok(report) => Json(serde_json::json!({ "ok": true, "stats": report })),
+        Err(e) => Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+    }
+}
+
+async fn budget_check(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<BudgetCheckRequest>,
+) -> Json<serde_json::Value> {
+    match token_budget::check_budget(&state.config.token_budget, &req) {
+        Ok(resp) => {
+            if resp.frozen {
+                let _ = state
+                    .spine
+                    .publish(
+                        "heart.budget.frozen",
+                        &serde_json::json!({
+                            "phase": req.phase,
+                            "estimated_tokens": req.estimated_tokens,
+                            "reason": resp.reason,
+                        }),
+                    )
+                    .await;
+            }
+            Json(serde_json::json!({ "ok": true, "decision": resp }))
+        }
+        Err(e) => Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+    }
 }
