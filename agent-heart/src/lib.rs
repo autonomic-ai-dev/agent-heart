@@ -8,6 +8,7 @@ pub mod scheduler;
 pub mod serve;
 pub mod spine;
 pub mod token_budget;
+pub mod update;
 
 use anyhow::Result;
 use config::Config;

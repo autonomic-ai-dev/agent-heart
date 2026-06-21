@@ -71,8 +71,8 @@ fn check_node(source: &str, node: tree_sitter::Node, _depth: usize, issues: &mut
             let cmd_text = node_text.to_lowercase();
             if cmd_text.starts_with("rm ")
                 && (cmd_text.contains(" -rf ") || cmd_text.contains(" -r "))
+                && !cmd_text.contains("--no-preserve-root")
             {
-                if !cmd_text.contains("--no-preserve-root") {
                     issues.push(LintIssue {
                         line,
                         severity: Severity::Warning,
@@ -80,7 +80,6 @@ fn check_node(source: &str, node: tree_sitter::Node, _depth: usize, issues: &mut
                             .into(),
                         snippet: Some(node_text.to_string()),
                     });
-                }
             }
             if cmd_text.starts_with("eval ")
                 || cmd_text.starts_with("source ")
@@ -93,15 +92,15 @@ fn check_node(source: &str, node: tree_sitter::Node, _depth: usize, issues: &mut
                     snippet: Some(node_text.to_string()),
                 });
             }
-            if cmd_text.starts_with("curl ") || cmd_text.starts_with("wget ") {
-                if !cmd_text.contains("--proto") && !cmd_text.contains("--secure") {
+            if (cmd_text.starts_with("curl ") || cmd_text.starts_with("wget "))
+                && !cmd_text.contains("--proto") && !cmd_text.contains("--secure")
+            {
                     issues.push(LintIssue {
                         line,
                         severity: Severity::Info,
                         message: "Consider verifying HTTPS/TLS flags for curl/wget".into(),
                         snippet: Some(node_text.to_string()),
                     });
-                }
             }
         }
         "variable_name" => {

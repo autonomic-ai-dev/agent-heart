@@ -41,6 +41,12 @@ enum Commands {
         #[arg(long)]
         list: bool,
     },
+    /// Self-update to the latest GitHub release
+    Update {
+        /// Update even if already at the latest version
+        #[arg(long)]
+        force: bool,
+    },
     /// Predictive token budget tools (reads agent-brain retrieval_log)
     Budget {
         #[command(subcommand)]
@@ -121,6 +127,9 @@ async fn main() -> anyhow::Result<()> {
                     println!("{name}");
                 }
             }
+        }
+        Commands::Update { force } => {
+            agent_heart::update::run_update(force)?;
         }
         Commands::Budget { command } => match command {
             BudgetCommands::Stats => {

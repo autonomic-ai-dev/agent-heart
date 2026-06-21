@@ -2,7 +2,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     pub schedule: ScheduleConfig,
     pub finetune: FinetuneConfig,
@@ -57,15 +57,9 @@ impl Default for FinetuneConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BrainConfig {
     pub binary_path: Option<String>,
-}
-
-impl Default for BrainConfig {
-    fn default() -> Self {
-        Self { binary_path: None }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -126,20 +120,6 @@ impl Default for LoggingConfig {
         Self {
             level: "info".into(),
             file: None,
-        }
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            schedule: ScheduleConfig::default(),
-            finetune: FinetuneConfig::default(),
-            brain: BrainConfig::default(),
-            token_budget: TokenBudgetConfig::default(),
-            server: ServerConfig::default(),
-            spine: SpineConfig::default(),
-            logging: LoggingConfig::default(),
         }
     }
 }
