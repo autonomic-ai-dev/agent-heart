@@ -1,6 +1,6 @@
 [package]
 name = "agent-heart"
-version = "0.7.3"
+version = "0.7.4"
 edition = "2021"
 
 [dependencies]
@@ -9,7 +9,7 @@ anyhow = "1"
 axum = "0.7"
 chrono = "0.4"
 clap = { version = "4", features = ["derive"] }
-dirs = "5"
+dirs = "6"
 reqwest = { version = "0.12", features = ["json"] }
 rmcp = { version = "0.1", features = ["server", "client", "transport-io"] }
 rusqlite = { version = "0.32", features = ["bundled"] }

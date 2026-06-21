@@ -30,6 +30,17 @@ enum Commands {
         /// Path to the script to lint
         script: std::path::PathBuf,
     },
+    /// View supervisor logs
+    Log {
+        /// Log name to view (omit to list all logs)
+        name: Option<String>,
+        /// Follow log output (tail -f style)
+        #[arg(long)]
+        follow: bool,
+        /// List available logs
+        #[arg(long)]
+        list: bool,
+    },
     /// Predictive token budget tools (reads agent-brain retrieval_log)
     Budget {
         #[command(subcommand)]
@@ -91,6 +102,29 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Lint { script } => {
             agent_heart::lint::lint_script(&script)?;
+        }
+        Commands::Log {
+            name,
+            follow,
+            list,
+        } => {
+            if list {
+                let logs = agent_heart::log::list_logs()?;
+                for name in logs {
+                    println!("{name}");
+                }
+            } else if let Some(name) = name {
+                if follow {
+                    agent_heart::log::follow_log(&name)?;
+                } else {
+                    agent_heart::log::print_log(&name)?;
+                }
+            } else {
+                let logs = agent_heart::log::list_logs()?;
+                for name in logs {
+                    println!("{name}");
+                }
+            }
         }
         Commands::Budget { command } => match command {
             BudgetCommands::Stats => {
