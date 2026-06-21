@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2026-06-21
+
+### Fixed
+
+- Default cron expressions updated from 5-field to 6-field format (`"0 0 3 * * *"`) for compatibility with `cron` v0.15 parser that rejects 5-field expressions
+- Scheduler start is now non-fatal — daemon continues running even if cron expression is invalid
+
 ## [0.7.2] - 2026-06-21
 
 ### Fixed

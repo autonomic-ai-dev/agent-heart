@@ -22,7 +22,7 @@ pub struct ScheduleConfig {
 impl Default for ScheduleConfig {
     fn default() -> Self {
         Self {
-            cron: "0 3 * * *".into(),
+            cron: "0 0 3 * * *".into(),
             enabled: true,
         }
     }
@@ -45,7 +45,7 @@ impl Default for FinetuneConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            cron: "0 4 * * *".into(),
+            cron: "0 0 4 * * *".into(),
             dataset_dir: None,
             muscle_binary: None,
             verify_ui_url: None,

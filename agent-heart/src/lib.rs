@@ -26,11 +26,18 @@ pub async fn serve(config: Config) -> Result<()> {
         mcp_server::HeartMcp::run(mcp_brain).await.ok();
     });
 
-    // Start cron scheduler
+    // Start cron scheduler (non-fatal — daemon works without it)
     if config.schedule.enabled {
-        let mut sched = scheduler::start(&config, brain_handle.clone()).await?;
-        tokio::signal::ctrl_c().await?;
-        sched.shutdown().await?;
+        match scheduler::start(&config, brain_handle.clone()).await {
+            Ok(mut sched) => {
+                tokio::signal::ctrl_c().await?;
+                sched.shutdown().await?;
+            }
+            Err(e) => {
+                tracing::warn!("Scheduler failed to start: {e}");
+                tokio::signal::ctrl_c().await?;
+            }
+        }
     } else {
         tokio::signal::ctrl_c().await?;
     }
