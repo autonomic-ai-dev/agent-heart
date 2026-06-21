@@ -77,9 +77,9 @@ impl Default for TokenBudgetConfig {
         Self {
             enabled: true,
             max_tokens_per_route: 8000,
-            anomaly_multiplier: 2.5,
+            anomaly_multiplier: 4.0,
             lookback_days: 7,
-            min_samples: 5,
+            min_samples: 20,
             brain_db_path: None,
         }
     }
@@ -126,7 +126,23 @@ impl Default for LoggingConfig {
 
 impl Config {
     pub fn load() -> Result<Self> {
-        agent_body_core::organ_config::load("heart")
+        let mut config: Self = agent_body_core::organ_config::load("heart")?;
+        if let Ok(val) = std::env::var("AUTONOMIC_ANOMALY_MULTIPLIER") {
+            if let Ok(v) = val.parse::<f64>() {
+                config.token_budget.anomaly_multiplier = v;
+            }
+        }
+        if let Ok(val) = std::env::var("AUTONOMIC_BUDGET_MIN_SAMPLES") {
+            if let Ok(v) = val.parse::<u64>() {
+                config.token_budget.min_samples = v;
+            }
+        }
+        if let Ok(val) = std::env::var("AUTONOMIC_BUDGET_CEILING") {
+            if let Ok(v) = val.parse::<u64>() {
+                config.token_budget.max_tokens_per_route = v;
+            }
+        }
+        Ok(config)
     }
 }
 
