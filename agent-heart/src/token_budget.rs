@@ -70,7 +70,10 @@ pub fn load_stats(config: &TokenBudgetConfig) -> Result<BudgetStatsReport> {
     })
 }
 
-pub fn check_budget(config: &TokenBudgetConfig, req: &BudgetCheckRequest) -> Result<BudgetCheckResponse> {
+pub fn check_budget(
+    config: &TokenBudgetConfig,
+    req: &BudgetCheckRequest,
+) -> Result<BudgetCheckResponse> {
     if !config.enabled {
         return Ok(BudgetCheckResponse {
             allowed: true,
@@ -114,15 +117,12 @@ pub fn check_budget(config: &TokenBudgetConfig, req: &BudgetCheckRequest) -> Res
             predicted_avg,
             sample_count,
             ceiling,
-            format!(
-                "estimated {estimated} tokens exceeds hard ceiling {ceiling}",
-            ),
+            format!("estimated {estimated} tokens exceeds hard ceiling {ceiling}",),
         ));
     }
 
     if sample_count >= config.min_samples {
-        let anomaly_threshold =
-            ((predicted_p95 as f64) * config.anomaly_multiplier).ceil() as u64;
+        let anomaly_threshold = ((predicted_p95 as f64) * config.anomaly_multiplier).ceil() as u64;
         if estimated > anomaly_threshold && anomaly_threshold > 0 {
             return Ok(deny(
                 predicted_p95,
@@ -209,7 +209,9 @@ fn load_token_samples(path: &Path, since_ms: i64, phase: Option<&str>) -> Result
         let mut stmt = conn.prepare(
             "SELECT tokens_used FROM retrieval_log WHERE timestamp >= ?1 AND phase != 'upstream_call' AND phase = ?2 ORDER BY tokens_used ASC",
         )?;
-        let rows = stmt.query_map(rusqlite::params![since_ms, phase], |row| row.get::<_, i64>(0))?;
+        let rows = stmt.query_map(rusqlite::params![since_ms, phase], |row| {
+            row.get::<_, i64>(0)
+        })?;
         for row in rows {
             out.push(row?.max(0) as u64);
         }
@@ -238,10 +240,7 @@ fn phase_stats(path: &Path, since_ms: i64) -> Result<Vec<PhaseTokenStats>> {
     let mut grouped: std::collections::HashMap<String, Vec<u64>> = std::collections::HashMap::new();
     for row in rows {
         let (phase, tokens) = row?;
-        grouped
-            .entry(phase)
-            .or_default()
-            .push(tokens.max(0) as u64);
+        grouped.entry(phase).or_default().push(tokens.max(0) as u64);
     }
 
     let mut out: Vec<PhaseTokenStats> = grouped

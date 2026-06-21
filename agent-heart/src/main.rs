@@ -103,11 +103,7 @@ async fn main() -> anyhow::Result<()> {
         Commands::Lint { script } => {
             agent_heart::lint::lint_script(&script)?;
         }
-        Commands::Log {
-            name,
-            follow,
-            list,
-        } => {
+        Commands::Log { name, follow, list } => {
             if list {
                 let logs = agent_heart::log::list_logs()?;
                 for name in logs {
