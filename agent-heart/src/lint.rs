@@ -73,7 +73,7 @@ fn check_node(source: &str, node: tree_sitter::Node, _depth: usize, issues: &mut
                 && (cmd_text.contains(" -rf ") || cmd_text.contains(" -r "))
                 && !cmd_text.contains("--no-preserve-root")
             {
-                    issues.push(LintIssue {
+                issues.push(LintIssue {
                         line,
                         severity: Severity::Warning,
                         message: "Use 'rm -rf' with caution. Consider adding --no-preserve-root for explicit intent."
@@ -93,14 +93,15 @@ fn check_node(source: &str, node: tree_sitter::Node, _depth: usize, issues: &mut
                 });
             }
             if (cmd_text.starts_with("curl ") || cmd_text.starts_with("wget "))
-                && !cmd_text.contains("--proto") && !cmd_text.contains("--secure")
+                && !cmd_text.contains("--proto")
+                && !cmd_text.contains("--secure")
             {
-                    issues.push(LintIssue {
-                        line,
-                        severity: Severity::Info,
-                        message: "Consider verifying HTTPS/TLS flags for curl/wget".into(),
-                        snippet: Some(node_text.to_string()),
-                    });
+                issues.push(LintIssue {
+                    line,
+                    severity: Severity::Info,
+                    message: "Consider verifying HTTPS/TLS flags for curl/wget".into(),
+                    snippet: Some(node_text.to_string()),
+                });
             }
         }
         "variable_name" => {
