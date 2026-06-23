@@ -95,6 +95,8 @@ In standalone mode, agent-heart is a CLI tool for one-shot GC and budget inspect
 | `agent-heart budget check --tokens N` | Check whether N tokens are within budget (used by spine) |
 | `agent-heart budget stats` | Show historical usage, anomaly detection, and predictions |
 
+Global `--progress` (or `AGENT_PROGRESS=1`) enables structured ProgressTree CLI output.
+
 ---
 
 ## HTTP API
