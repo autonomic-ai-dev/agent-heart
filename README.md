@@ -1,8 +1,10 @@
 # agent-heart — Background Maintenance Daemon
 
-**Scheduled garbage collection, predictive token budgeting, and spine budget gates for the Autonomic AI ecosystem.**
+**Cloud-Native role: Controller manager / GC** — scheduled memory GC, token budget gates, and background maintenance for the agent stack.
 
-agent-heart is the **background heartbeat** of the ecosystem. It runs periodic `agent-brain gc` cycles to keep the knowledge index healthy, exposes a token budget API that prevents agent-spine from burning through LLM quota, and tracks fine-tuning schedules. It does not duplicate brain logic — it **orchestrates it on a schedule** and **gates spend** with a hard ceiling.
+agent-heart is the **background controller** for Autonomic. It runs periodic `agent-brain gc` cycles to keep the knowledge index healthy, exposes a token budget API that prevents agent-spine from burning through LLM quota, and tracks fine-tuning schedules. It does not duplicate brain logic — it **orchestrates it on a schedule** and **gates spend** with a hard ceiling.
+
+> Codename: *heart organ*. Mapping: [cloud-native-platform.md](https://github.com/autonomic-ai-dev/agent-body/blob/master/docs/cloud-native-platform.md)
 
 The key design choice: maintenance should never block the IDE. agent-heart runs as a background HTTP daemon (`:3101`), separate from agent-brain's MCP stdio, so GC and budget checks happen without interrupting the developer's workflow.
 
