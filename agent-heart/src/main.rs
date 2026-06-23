@@ -1,5 +1,25 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
+
+use agent_body_core::cli::apply_progress_env;
+use agent_body_core::ui::ProgressMode;
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum ProgressArg {
+    Auto,
+    Plain,
+    Quiet,
+}
+
+impl From<ProgressArg> for ProgressMode {
+    fn from(value: ProgressArg) -> Self {
+        match value {
+            ProgressArg::Auto => ProgressMode::Auto,
+            ProgressArg::Plain => ProgressMode::Plain,
+            ProgressArg::Quiet => ProgressMode::Quiet,
+        }
+    }
+}
 
 fn config_path() -> PathBuf {
     agent_heart::config::config_path()
@@ -9,6 +29,10 @@ fn config_path() -> PathBuf {
 #[command(name = "agent-heart", about = "Background distillation daemon")]
 #[command(version)]
 struct Cli {
+    /// Progress output style: auto, plain, or quiet
+    #[arg(long, value_enum, global = true, default_value = "auto")]
+    progress: ProgressArg,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -74,6 +98,7 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let cli = Cli::parse();
+    apply_progress_env(cli.progress.into());
     let config = agent_heart::config::Config::load()?;
 
     match cli.command {
