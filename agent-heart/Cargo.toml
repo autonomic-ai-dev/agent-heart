@@ -1,10 +1,10 @@
 [package]
 name = "agent-heart"
-version = "0.7.8"
+version = "0.7.9"
 edition = "2021"
 
 [dependencies]
-agent-body-core = { git = "https://github.com/autonomic-ai-dev/agent-body" }
+agent-body-core = { git = "https://github.com/autonomic-ai-dev/agent-body", tag = "v0.5.13" }
 anyhow = "1"
 axum = "0.7"
 chrono = "0.4"
