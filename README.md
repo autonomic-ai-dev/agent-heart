@@ -1,23 +1,22 @@
-# agent-heart — Background Maintenance Daemon
+# agent-heart — Background Maintenance & Quota Controller
 
 **Cloud-Native role: Controller manager / GC** — scheduled memory GC, token budget gates, and background maintenance for the agent stack.
 
-agent-heart is the **background controller** for Autonomic. It runs periodic `agent-brain gc` cycles to keep the knowledge index healthy, exposes a token budget API that prevents agent-spine from burning through LLM quota, and tracks fine-tuning schedules. It does not duplicate brain logic — it **orchestrates it on a schedule** and **gates spend** with a hard ceiling.
-
-> Codename: *heart organ*. Mapping: [cloud-native-platform.md](https://github.com/autonomic-ai-dev/agent-body/blob/master/docs/cloud-native-platform.md)
-
-The key design choice: maintenance should never block the IDE. agent-heart runs as a background HTTP daemon (`:3101`), separate from agent-brain's MCP stdio, so GC and budget checks happen without interrupting the developer's workflow.
+`agent-heart` is the background controller for Autonomic. It runs periodic garbage collection cycles to keep the knowledge index healthy, exposes a token budget API that prevents agents from burning through LLM quotas, and tracks model fine-tuning schedules.
 
 ---
 
-## Core Concept
+## Under the Hood: How it Works
 
-Left to run indefinitely, agent-brain's index accumulates stale entries, deduplication debt, and embedding bloat. Without a budget gate, agent-spine can burn arbitrarily many tokens in a single workflow run.
+Left to run indefinitely, an agent's memory index accumulates stale entries and embedding bloat. Furthermore, without a budget gate, a runaway agent can burn arbitrarily many tokens in an infinite retry loop.
 
-agent-heart solves both:
+`agent-heart` solves both by running as a lightweight background daemon:
 
-1. **Preventive maintenance** — cron-driven GC cycles that prune stale facts, deduplicate index items, and vacuum the database
-2. **Cost control** — a `/budget/check` HTTP endpoint that agent-spine calls before delegating LLM work, enforcing a configurable token ceiling with anomaly detection
+1. **Preventive Maintenance (Cron)** 
+It uses a native `tokio-cron` scheduler to trigger background maintenance. For example, at 3:00 AM every night, it triggers `agent-brain gc` to prune stale facts, deduplicate vector embeddings, and vacuum the local SQLite database, ensuring retrieval stays lightning fast.
+
+2. **Cost Control (Token Budget API)** 
+It exposes a strict `/budget/check` HTTP endpoint. Before `agent-spine` executes any LLM-heavy node, it queries `agent-heart`. If the requested token spend exceeds the daily ceiling or triggers an anomaly detection rule, `agent-heart` denies the request and safely halts the workflow before you incur massive API bills.
 
 ```mermaid
 flowchart TD
