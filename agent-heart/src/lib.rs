@@ -24,8 +24,9 @@ pub async fn serve(config: Config) -> Result<()> {
 
     // Start MCP server in background
     let mcp_brain = brain_handle.clone();
+    let mcp_config = config.clone();
     let mcp_handle = tokio::spawn(async move {
-        mcp_server::HeartMcp::run(mcp_brain).await.ok();
+        mcp_server::HeartMcp::run(mcp_brain, mcp_config).await.ok();
     });
 
     // Start cron scheduler (non-fatal — daemon works without it)

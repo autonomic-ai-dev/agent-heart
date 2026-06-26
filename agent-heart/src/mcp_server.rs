@@ -6,19 +6,22 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 
 use crate::brain_client::BrainHandle;
+use crate::config::Config;
+use crate::token_budget;
 
 #[derive(Clone)]
 pub struct HeartMcp {
     brain: BrainHandle,
+    config: Config,
 }
 
 impl HeartMcp {
-    pub fn new(brain: BrainHandle) -> Self {
-        Self { brain }
+    pub fn new(brain: BrainHandle, config: Config) -> Self {
+        Self { brain, config }
     }
 
-    pub async fn run(brain: BrainHandle) -> anyhow::Result<()> {
-        let server = Self::new(brain);
+    pub async fn run(brain: BrainHandle, config: Config) -> anyhow::Result<()> {
+        let server = Self::new(brain, config);
         let service = serve_server(server, rmcp::transport::io::stdio()).await?;
         service.waiting().await?;
         Ok(())
@@ -40,10 +43,22 @@ fn default_max_age_days() -> u64 {
     90
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+struct DistillParams {
+    #[serde(default = "default_threshold")]
+    threshold: f64,
+    #[serde(default)]
+    dry_run: bool,
+}
+
+fn default_threshold() -> f64 {
+    0.75
+}
+
 #[tool(tool_box)]
 impl HeartMcp {
-    #[tool(description = "Trigger garbage collection on agent-brain")]
-    async fn heart_trigger_gc(
+    #[tool(description = "Run memory garbage collection on agent-brain")]
+    async fn heart_gc(
         &self,
         #[tool(aggr)] params: TriggerGcParams,
     ) -> Result<CallToolResult, McpError> {
@@ -52,6 +67,33 @@ impl HeartMcp {
             .call_gc(params.min_confidence, params.max_age_days)
             .await
         {
+            Ok(stats) => {
+                let text =
+                    serde_json::to_string_pretty(&stats).unwrap_or_else(|_| "{}".to_string());
+                Ok(CallToolResult::success(vec![Content::text(text)]))
+            }
+            Err(e) => Err(McpError::internal_error(format!("{e}"), None)),
+        }
+    }
+
+    #[tool(description = "Return current token/cost consumption across the session from agent-brain retrieval_log")]
+    async fn heart_budget_status(&self) -> Result<CallToolResult, McpError> {
+        match token_budget::load_stats(&self.config.token_budget) {
+            Ok(report) => {
+                let text =
+                    serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".to_string());
+                Ok(CallToolResult::success(vec![Content::text(text)]))
+            }
+            Err(e) => Err(McpError::internal_error(format!("{e}"), None)),
+        }
+    }
+
+    #[tool(description = "Summarize related memory facts into higher-level concepts via cluster distillation")]
+    async fn heart_memory_distill(
+        &self,
+        #[tool(aggr)] params: DistillParams,
+    ) -> Result<CallToolResult, McpError> {
+        match self.brain.call_distill(params.threshold, params.dry_run).await {
             Ok(stats) => {
                 let text =
                     serde_json::to_string_pretty(&stats).unwrap_or_else(|_| "{}".to_string());
@@ -85,7 +127,7 @@ impl ServerHandler for HeartMcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             instructions: Some(
-                "Background distillation daemon for agent-brain. Use heart_trigger_gc to run GC."
+                "Background distillation daemon for agent-brain. Tools: heart_gc (run GC), heart_budget_status (token/cost usage), heart_memory_distill (cluster distillation), heart_status (daemon status)."
                     .into(),
             ),
             ..Default::default()
