@@ -76,7 +76,9 @@ impl HeartMcp {
         }
     }
 
-    #[tool(description = "Return current token/cost consumption across the session from agent-brain retrieval_log")]
+    #[tool(
+        description = "Return current token/cost consumption across the session from agent-brain retrieval_log"
+    )]
     async fn heart_budget_status(&self) -> Result<CallToolResult, McpError> {
         match token_budget::load_stats(&self.config.token_budget) {
             Ok(report) => {
@@ -88,12 +90,18 @@ impl HeartMcp {
         }
     }
 
-    #[tool(description = "Summarize related memory facts into higher-level concepts via cluster distillation")]
+    #[tool(
+        description = "Summarize related memory facts into higher-level concepts via cluster distillation"
+    )]
     async fn heart_memory_distill(
         &self,
         #[tool(aggr)] params: DistillParams,
     ) -> Result<CallToolResult, McpError> {
-        match self.brain.call_distill(params.threshold, params.dry_run).await {
+        match self
+            .brain
+            .call_distill(params.threshold, params.dry_run)
+            .await
+        {
             Ok(stats) => {
                 let text =
                     serde_json::to_string_pretty(&stats).unwrap_or_else(|_| "{}".to_string());
@@ -132,5 +140,31 @@ impl ServerHandler for HeartMcp {
             ),
             ..Default::default()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_min_confidence_is_0_3() {
+        assert!((default_min_confidence() - 0.3).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn default_max_age_days_is_90() {
+        assert_eq!(default_max_age_days(), 90);
+    }
+
+    #[test]
+    fn default_threshold_is_0_75() {
+        assert!((default_threshold() - 0.75).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn heart_mcp_implements_server_handler() {
+        fn assert_handler<T: rmcp::ServerHandler>() {}
+        assert_handler::<HeartMcp>();
     }
 }

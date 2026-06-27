@@ -54,13 +54,14 @@ pub async fn start(config: &Config, brain: BrainHandle) -> Result<JobScheduler> 
                 if let Err(e) = sched.add(finetune_job).await {
                     tracing::error!("Failed to add Finetune job to scheduler: {}", e);
                 } else {
-                    info!(
-                        "Finetune scheduler started: cron='{}'",
-                        finetune_cron
-                    );
+                    info!("Finetune scheduler started: cron='{}'", finetune_cron);
                 }
             }
-            Err(e) => tracing::error!("Invalid Finetune cron expression '{}': {}", finetune_cron, e),
+            Err(e) => tracing::error!(
+                "Invalid Finetune cron expression '{}': {}",
+                finetune_cron,
+                e
+            ),
         }
     }
 

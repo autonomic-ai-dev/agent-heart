@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.10] - 2026-06-27
+
+### Added
+
+- **`serve-mcp` subcommand** — starts the MCP stdio server only (no HTTP daemon, no cron scheduler). Used by `agent-body serve-mcp` gateway for persistent tool aggregation.
+- **Integration tests** — `serve_mcp` CLI parsing, `HeartMcp` tool handler response validation (budget status, GC triggers)
+
+## [0.7.9] - 2026-06-27
+
+### Added
+
+- Heart status tool (`heart_status`) — returns daemon state from MCP
+- Dual-mode MCP server with organ tool naming convention (`heart_budget_status`, `heart_gc`, `heart_memory_distill`)
+
 ## [0.7.8] - 2026-06-23
 
 ### Added

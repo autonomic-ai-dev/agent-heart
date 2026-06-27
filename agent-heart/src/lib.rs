@@ -13,6 +13,12 @@ pub mod update;
 use anyhow::Result;
 use config::Config;
 
+pub async fn serve_mcp(config: Config) -> Result<()> {
+    let brain_handle = brain_client::BrainHandle::start(&config).await?;
+    mcp_server::HeartMcp::run(brain_handle, config).await?;
+    Ok(())
+}
+
 pub async fn serve(config: Config) -> Result<()> {
     let brain_handle = brain_client::BrainHandle::start(&config).await?;
     let config_clone = config.clone();
