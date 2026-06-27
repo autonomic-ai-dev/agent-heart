@@ -39,8 +39,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Start the daemon (MCP server + cron scheduler)
+    /// Start the daemon (HTTP + MCP server + cron scheduler)
     Serve,
+    /// Start the MCP stdio server only (no HTTP, no scheduler)
+    ServeMcp,
     /// Run GC once and exit
     Gc,
     /// Run cluster distillation once and exit
@@ -103,6 +105,7 @@ async fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Commands::Serve => agent_heart::serve(config).await?,
+        Commands::ServeMcp => agent_heart::serve_mcp(config).await?,
         Commands::Gc => agent_heart::run_gc_once(config).await?,
         Commands::Distill => agent_heart::run_distill_once(config).await?,
         Commands::Finetune => agent_heart::run_finetune_once(config).await?,

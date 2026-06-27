@@ -142,3 +142,29 @@ impl ServerHandler for HeartMcp {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_min_confidence_is_0_3() {
+        assert!((default_min_confidence() - 0.3).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn default_max_age_days_is_90() {
+        assert_eq!(default_max_age_days(), 90);
+    }
+
+    #[test]
+    fn default_threshold_is_0_75() {
+        assert!((default_threshold() - 0.75).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn heart_mcp_implements_server_handler() {
+        fn assert_handler<T: rmcp::ServerHandler>() {}
+        assert_handler::<HeartMcp>();
+    }
+}

@@ -53,6 +53,7 @@ flowchart TD
 |------|--------------|--------------|
 | **Standalone** | `agent-heart gc` | One-shot garbage collection pass |
 | **Standalone** | `agent-heart budget check --tokens 5000` | Manual budget gate check |
+| **Standalone** | `agent-heart serve-mcp` | MCP stdio server only (for gateway aggregation) |
 | **Standalone** | `agent-heart serve` | Daemon with cron GC + HTTP API on `:3101` |
 | **Integrated** | `autonomic start` | Supervised by agent-body; reads `[heart]` from unified config |
 | **Integrated** | agent-spine budget gate | Spine calls `POST /budget/check` automatically before LLM nodes |
@@ -91,6 +92,7 @@ In standalone mode, agent-heart is a CLI tool for one-shot GC and budget inspect
 | Command | Description |
 |---------|-------------|
 | `agent-heart serve` | Start daemon with cron GC, fine-tune scheduler, and HTTP API |
+| `agent-heart serve-mcp` | Start MCP stdio server only (no HTTP, no scheduler) |
 | `agent-heart gc` | Run one agent-brain GC pass immediately |
 | `agent-heart status` | Show schedule, last GC, fine-tune state, budget ceiling |
 | `agent-heart budget check --tokens N` | Check whether N tokens are within budget (used by spine) |
