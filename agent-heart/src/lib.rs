@@ -8,6 +8,7 @@ pub mod mcp_server;
 pub mod scheduler;
 pub mod serve;
 pub mod spine;
+pub mod pid_throttle;
 pub mod token_budget;
 pub mod update;
 

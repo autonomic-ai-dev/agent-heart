@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use crate::config::Config;
 use crate::spine::SpineClient;
-use crate::token_budget::{self, BudgetCheckRequest};
+use crate::token_budget::{self, BudgetCheckRequest, WasmExecutionRecord};
 
 pub struct AppState {
     pub config: Config,
@@ -33,6 +33,7 @@ pub async fn start_http(config: Config) -> anyhow::Result<()> {
         .route("/gc/status", get(gc_status))
         .route("/budget/stats", get(budget_stats))
         .route("/budget/check", post(budget_check))
+        .route("/budget/wasm/record", post(wasm_record))
         .with_state(state);
     let addr = format!("0.0.0.0:{}", port);
     tracing::info!("HTTP server listening on {}", addr);
@@ -87,5 +88,16 @@ async fn budget_check(
             Json(serde_json::json!({ "ok": true, "decision": resp }))
         }
         Err(e) => Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+    }
+}
+
+
+async fn wasm_record(
+    State(state): State<Arc<AppState>>,
+    Json(rec): Json<WasmExecutionRecord>,
+) -> Json<serde_json::Value> {
+    match token_budget::record_wasm_execution(&state.config.token_budget, &rec) {
+        Ok(()) => Json(serde_json::json!({"ok": true})),
+        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string() })),
     }
 }
