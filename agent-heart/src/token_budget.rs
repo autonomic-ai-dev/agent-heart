@@ -23,6 +23,8 @@ pub struct BudgetCheckRequest {
     pub estimated_tokens: u64,
     #[serde(default)]
     pub task_kind: Option<String>,
+    #[serde(default)]
+    pub estimated_wasm_fuel: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,6 +36,8 @@ pub struct BudgetCheckResponse {
     pub sample_count: u64,
     pub ceiling: u64,
     pub reason: String,
+    pub wasm_p95: u64,
+    pub wasm_ceiling: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,6 +47,9 @@ pub struct BudgetStatsReport {
     pub phases: Vec<PhaseTokenStats>,
     pub global_avg_tokens: u64,
     pub global_p95_tokens: u64,
+    pub global_wasm_fuel_p95: u64,
+    pub global_wasm_fuel_avg: u64,
+    pub wasm_sample_count: u64,
 }
 
 pub fn brain_db_path(config: &TokenBudgetConfig) -> PathBuf {
@@ -53,13 +60,102 @@ pub fn brain_db_path(config: &TokenBudgetConfig) -> PathBuf {
         .unwrap_or_else(|| agent_body_core::memory_dir().join("brain.db"))
 }
 
+pub fn heart_db_path(config: &TokenBudgetConfig) -> PathBuf {
+    config
+        .heart_db_path
+        .as_ref()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| crate::config::state_dir().join("heart.db"))
+}
+
+pub fn ensure_wasm_schema(path: &Path) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let conn = Connection::open(path)?;
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS wasm_executions (
+            id TEXT PRIMARY KEY,
+            timestamp INTEGER NOT NULL,
+            job_id TEXT,
+            organ TEXT NOT NULL,
+            fuel_consumed INTEGER NOT NULL,
+            memory_peak_bytes INTEGER,
+            success INTEGER NOT NULL,
+            latency_ms INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_wasm_executions_ts ON wasm_executions(timestamp);",
+    )?;
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WasmExecutionRecord {
+    pub id: String,
+    pub job_id: Option<String>,
+    pub organ: String,
+    pub fuel_consumed: u64,
+    pub memory_peak_bytes: Option<u64>,
+    pub success: bool,
+    pub latency_ms: u64,
+}
+
+pub fn record_wasm_execution(config: &TokenBudgetConfig, rec: &WasmExecutionRecord) -> Result<()> {
+    let path = heart_db_path(config);
+    ensure_wasm_schema(&path)?;
+    let conn = Connection::open(&path)?;
+    let ts = chrono::Utc::now().timestamp_millis();
+    conn.execute(
+        "INSERT OR REPLACE INTO wasm_executions (id, timestamp, job_id, organ, fuel_consumed, memory_peak_bytes, success, latency_ms)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        rusqlite::params![
+            rec.id,
+            ts,
+            rec.job_id,
+            rec.organ,
+            i64::try_from(rec.fuel_consumed).unwrap_or(i64::MAX),
+            rec.memory_peak_bytes.map(|v| i64::try_from(v).unwrap_or(i64::MAX)),
+            i64::from(rec.success),
+            i64::try_from(rec.latency_ms).unwrap_or(0),
+        ],
+    )?;
+    Ok(())
+}
+
+fn load_wasm_fuel_samples(path: &Path, since_ms: i64) -> Result<Vec<u64>> {
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    ensure_wasm_schema(path)?;
+    let conn = Connection::open(path)?;
+    let mut stmt = conn.prepare(
+        "SELECT fuel_consumed FROM wasm_executions WHERE timestamp >= ?1 AND success = 1 ORDER BY fuel_consumed ASC",
+    )?;
+    let rows = stmt.query_map(rusqlite::params![since_ms], |row| row.get::<_, i64>(0))?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row?.max(0) as u64);
+    }
+    Ok(out)
+}
+
 pub fn load_stats(config: &TokenBudgetConfig) -> Result<BudgetStatsReport> {
     let db_path = brain_db_path(config);
     let since_ms = lookback_since_ms(config.lookback_days);
-    let phases = phase_stats(&db_path, since_ms)?;
-    let global_samples = load_token_samples(&db_path, since_ms, None)?;
+    let (phases, global_samples) = if db_path.exists() {
+        (
+            phase_stats(&db_path, since_ms)?,
+            load_token_samples(&db_path, since_ms, None)?,
+        )
+    } else {
+        (Vec::new(), Vec::new())
+    };
     let global_avg = average(&global_samples);
     let global_p95 = percentile(&global_samples, 95);
+    let heart_path = heart_db_path(config);
+    let wasm_samples = load_wasm_fuel_samples(&heart_path, since_ms).unwrap_or_default();
+    let wasm_avg = average(&wasm_samples);
+    let wasm_p95 = percentile(&wasm_samples, 95);
 
     Ok(BudgetStatsReport {
         brain_db: db_path.display().to_string(),
@@ -67,6 +163,9 @@ pub fn load_stats(config: &TokenBudgetConfig) -> Result<BudgetStatsReport> {
         phases,
         global_avg_tokens: global_avg,
         global_p95_tokens: global_p95,
+        global_wasm_fuel_p95: wasm_p95,
+        global_wasm_fuel_avg: wasm_avg,
+        wasm_sample_count: wasm_samples.len() as u64,
     })
 }
 
@@ -83,33 +182,41 @@ pub fn check_budget(
             sample_count: 0,
             ceiling: config.max_tokens_per_route,
             reason: "token budget disabled".into(),
+            wasm_p95: 0,
+            wasm_ceiling: config.max_wasm_fuel_per_route,
         });
     }
 
     let db_path = brain_db_path(config);
-    if !db_path.exists() {
-        return Ok(BudgetCheckResponse {
-            allowed: true,
-            frozen: false,
-            predicted_p95: 0,
-            predicted_avg: 0,
-            sample_count: 0,
-            ceiling: config.max_tokens_per_route,
-            reason: format!(
-                "brain.db not found at {} — allowing cold start",
-                db_path.display()
-            ),
-        });
-    }
-
     let since_ms = lookback_since_ms(config.lookback_days);
     let phase = normalize_phase(&req.phase);
-    let samples = load_token_samples(&db_path, since_ms, Some(&phase))?;
+    let samples = if db_path.exists() {
+        load_token_samples(&db_path, since_ms, Some(&phase))?
+    } else {
+        Vec::new()
+    };
     let sample_count = samples.len() as u64;
     let predicted_avg = average(&samples);
     let predicted_p95 = percentile(&samples, 95);
     let ceiling = config.max_tokens_per_route;
     let estimated = req.estimated_tokens.max(1);
+    let heart_path = heart_db_path(config);
+    let wasm_samples = load_wasm_fuel_samples(&heart_path, since_ms).unwrap_or_default();
+    let wasm_p95 = percentile(&wasm_samples, 95);
+    let wasm_ceiling = config.max_wasm_fuel_per_route;
+    let estimated_wasm = req.estimated_wasm_fuel.unwrap_or(0);
+
+    if estimated_wasm > wasm_ceiling {
+        return Ok(deny(
+            predicted_p95,
+            predicted_avg,
+            sample_count,
+            ceiling,
+            format!("estimated {estimated_wasm} WASM fuel exceeds ceiling {wasm_ceiling}"),
+            wasm_p95,
+            wasm_ceiling,
+        ));
+    }
 
     if estimated > ceiling {
         return Ok(deny(
@@ -118,6 +225,8 @@ pub fn check_budget(
             sample_count,
             ceiling,
             format!("estimated {estimated} tokens exceeds hard ceiling {ceiling}",),
+            wasm_p95,
+            wasm_ceiling,
         ));
     }
 
@@ -133,22 +242,45 @@ pub fn check_budget(
                     "estimated {estimated} tokens exceeds {:.1}x p95 ({predicted_p95}) → threshold {anomaly_threshold} — possible runaway LLM usage",
                     config.anomaly_multiplier
                 ),
+                wasm_p95,
+                wasm_ceiling,
             ));
         }
-    } else {
-        return Ok(BudgetCheckResponse {
-            allowed: true,
-            frozen: false,
-            predicted_p95,
-            predicted_avg,
-            sample_count,
-            ceiling,
-            reason: format!(
-                "insufficient history ({sample_count}/{} samples) — allowing",
-                config.min_samples
-            ),
-        });
     }
+
+    if estimated_wasm > 0 && wasm_samples.len() as u64 >= config.min_samples {
+        let wasm_threshold = ((wasm_p95 as f64) * config.wasm_anomaly_multiplier).ceil() as u64;
+        if estimated_wasm > wasm_threshold && wasm_threshold > 0 {
+            return Ok(deny(
+                predicted_p95,
+                predicted_avg,
+                sample_count,
+                ceiling,
+                format!(
+                    "estimated {estimated_wasm} WASM fuel exceeds {:.1}x p95 ({wasm_p95}) → threshold {wasm_threshold}",
+                    config.wasm_anomaly_multiplier
+                ),
+                wasm_p95,
+                wasm_ceiling,
+            ));
+        }
+    }
+
+    let reason = if sample_count < config.min_samples {
+        if db_path.exists() {
+            format!(
+                "insufficient token history ({sample_count}/{} samples) — allowing",
+                config.min_samples
+            )
+        } else {
+            format!(
+                "brain.db not found at {} — allowing token cold start",
+                db_path.display()
+            )
+        }
+    } else {
+        "within predicted token and WASM fuel budget".into()
+    };
 
     Ok(BudgetCheckResponse {
         allowed: true,
@@ -157,7 +289,9 @@ pub fn check_budget(
         predicted_avg,
         sample_count,
         ceiling,
-        reason: "within predicted token budget".into(),
+        reason,
+        wasm_p95,
+        wasm_ceiling,
     })
 }
 
@@ -167,6 +301,8 @@ fn deny(
     sample_count: u64,
     ceiling: u64,
     reason: String,
+    wasm_p95: u64,
+    wasm_ceiling: u64,
 ) -> BudgetCheckResponse {
     BudgetCheckResponse {
         allowed: false,
@@ -176,6 +312,8 @@ fn deny(
         sample_count,
         ceiling,
         reason,
+        wasm_p95,
+        wasm_ceiling,
     }
 }
 
@@ -326,6 +464,7 @@ mod tests {
             lookback_days: 7,
             min_samples: 2,
             brain_db_path: Some(db.display().to_string()),
+            ..TokenBudgetConfig::default()
         };
         let resp = check_budget(
             &config,
@@ -333,6 +472,7 @@ mod tests {
                 phase: "implementing".into(),
                 estimated_tokens: 5000,
                 task_kind: None,
+                estimated_wasm_fuel: None,
             },
         )
         .unwrap();
@@ -354,9 +494,62 @@ mod tests {
                 phase: "implementing".into(),
                 estimated_tokens: 140,
                 task_kind: None,
+                estimated_wasm_fuel: None,
             },
         )
         .unwrap();
         assert!(resp.allowed);
+    }
+
+    fn seed_wasm_db(path: &Path) {
+        let config = TokenBudgetConfig {
+            heart_db_path: Some(path.display().to_string()),
+            ..TokenBudgetConfig::default()
+        };
+        for (i, fuel) in [(1, 1000u64), (2, 1200), (3, 9000), (4, 1100)] {
+            record_wasm_execution(
+                &config,
+                &WasmExecutionRecord {
+                    id: format!("w{i}"),
+                    job_id: Some(format!("job-{i}")),
+                    organ: "immune".into(),
+                    fuel_consumed: fuel,
+                    memory_peak_bytes: Some(4096),
+                    success: true,
+                    latency_ms: 5,
+                },
+            )
+            .unwrap();
+        }
+    }
+
+    #[test]
+    fn wasm_fuel_p95_tracking() {
+        let dir = TempDir::new().unwrap();
+        let db = dir.path().join("heart.db");
+        seed_wasm_db(&db);
+        let config = TokenBudgetConfig {
+            enabled: true,
+            max_wasm_fuel_per_route: 50_000,
+            wasm_anomaly_multiplier: 2.0,
+            min_samples: 2,
+            heart_db_path: Some(db.display().to_string()),
+            ..TokenBudgetConfig::default()
+        };
+        let stats = load_stats(&config).unwrap();
+        assert!(stats.wasm_sample_count >= 4);
+        assert!(stats.global_wasm_fuel_p95 >= 1100);
+        let resp = check_budget(
+            &config,
+            &BudgetCheckRequest {
+                phase: "implementing".into(),
+                estimated_tokens: 100,
+                task_kind: None,
+                estimated_wasm_fuel: Some(20_000),
+            },
+        )
+        .unwrap();
+        assert!(!resp.allowed);
+        assert!(resp.wasm_p95 > 0);
     }
 }

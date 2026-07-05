@@ -171,6 +171,7 @@ async fn main() -> anyhow::Result<()> {
                         phase,
                         estimated_tokens: tokens,
                         task_kind: None,
+                        estimated_wasm_fuel: None,
                     },
                 )?;
                 println!("{}", serde_json::to_string_pretty(&resp)?);

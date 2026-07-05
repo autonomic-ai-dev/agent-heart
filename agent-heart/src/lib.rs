@@ -1,5 +1,6 @@
 pub mod brain_client;
 pub mod config;
+pub mod distillation;
 pub mod finetune;
 pub mod lint;
 pub mod log;
@@ -68,8 +69,9 @@ pub async fn run_distill_once(config: Config) -> Result<()> {
     let handle = brain_client::BrainHandle::start(&config).await?;
     let pipeline = handle.call_dataset_pipeline(Some(&config.finetune)).await?;
     println!("{}", serde_json::to_string_pretty(&pipeline)?);
-    let stats = handle.call_distill(0.95, false).await?;
-    println!("{}", serde_json::to_string_pretty(&stats)?);
+    let pulse =
+        distillation::run_cluster_pulse(&handle, config.distillation.threshold, false).await?;
+    println!("{}", serde_json::to_string_pretty(&pulse)?);
     handle.shutdown().await;
     Ok(())
 }
