@@ -5,6 +5,7 @@ use rusqlite::{Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+use crate::budget_vector::BudgetVector;
 use crate::config::TokenBudgetConfig;
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -44,6 +45,8 @@ pub struct BudgetCheckResponse {
     pub wasm_ceiling: u64,
     #[serde(default = "default_throttle_factor")]
     pub throttle_factor: f64,
+    #[serde(default)]
+    pub budget_vector: BudgetVector,
 }
 
 fn default_throttle_factor() -> f64 {
@@ -195,6 +198,7 @@ pub fn check_budget(
             wasm_p95: 0,
             wasm_ceiling: config.max_wasm_fuel_per_route,
             throttle_factor: 1.0,
+            budget_vector: BudgetVector::default(),
         });
     }
 
@@ -249,7 +253,8 @@ pub fn check_budget(
                 *pid_map = Some(HashMap::new());
             }
             let state = pid_map.as_mut().unwrap().entry(phase.clone()).or_default();
-            let throttle_factor = crate::pid_throttle::throttle_factor(state, estimated, predicted_p95.max(1));
+            let throttle_factor =
+                crate::pid_throttle::throttle_factor(state, estimated, predicted_p95.max(1));
             if throttle_factor >= 0.35 {
                 return Ok(BudgetCheckResponse {
                     allowed: true,
@@ -265,6 +270,7 @@ pub fn check_budget(
                     wasm_p95,
                     wasm_ceiling,
                     throttle_factor,
+                    budget_vector: budget_vector_for(req, ceiling, wasm_ceiling),
                 });
             }
             return Ok(deny(
@@ -321,7 +327,8 @@ pub fn check_budget(
         *pid_map = Some(HashMap::new());
     }
     let state = pid_map.as_mut().unwrap().entry(phase.clone()).or_default();
-    let throttle_factor = crate::pid_throttle::throttle_factor(state, estimated, predicted_p95.max(1));
+    let throttle_factor =
+        crate::pid_throttle::throttle_factor(state, estimated, predicted_p95.max(1));
     let (allowed, frozen, reason) = if throttle_factor < 0.35 {
         (
             false,
@@ -355,7 +362,25 @@ pub fn check_budget(
         wasm_p95,
         wasm_ceiling,
         throttle_factor,
+        budget_vector: budget_vector_for(req, ceiling, wasm_ceiling),
     })
+}
+
+fn budget_vector_for(
+    req: &BudgetCheckRequest,
+    token_ceiling: u64,
+    wasm_ceiling: u64,
+) -> BudgetVector {
+    BudgetVector::from_usage(
+        req.estimated_tokens,
+        req.estimated_wasm_fuel.unwrap_or(0),
+        0,
+        BudgetVector {
+            tokens: token_ceiling.max(1) as f64,
+            wasm_fuel: wasm_ceiling.max(1) as f64,
+            latency_ms: 5_000.0,
+        },
+    )
 }
 
 fn deny(
@@ -378,6 +403,7 @@ fn deny(
         wasm_p95,
         wasm_ceiling,
         throttle_factor: 0.0,
+        budget_vector: BudgetVector::default(),
     }
 }
 

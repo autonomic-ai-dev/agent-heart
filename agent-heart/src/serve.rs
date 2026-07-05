@@ -91,7 +91,6 @@ async fn budget_check(
     }
 }
 
-
 async fn wasm_record(
     State(state): State<Arc<AppState>>,
     Json(rec): Json<WasmExecutionRecord>,
