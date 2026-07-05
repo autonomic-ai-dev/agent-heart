@@ -6,6 +6,10 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 use crate::config::TokenBudgetConfig;
+use std::collections::HashMap;
+use std::sync::Mutex;
+
+static PID: Mutex<Option<HashMap<String, crate::pid_throttle::PidState>>> = Mutex::new(None);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PhaseTokenStats {
@@ -38,6 +42,12 @@ pub struct BudgetCheckResponse {
     pub reason: String,
     pub wasm_p95: u64,
     pub wasm_ceiling: u64,
+    #[serde(default = "default_throttle_factor")]
+    pub throttle_factor: f64,
+}
+
+fn default_throttle_factor() -> f64 {
+    1.0
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -184,6 +194,7 @@ pub fn check_budget(
             reason: "token budget disabled".into(),
             wasm_p95: 0,
             wasm_ceiling: config.max_wasm_fuel_per_route,
+            throttle_factor: 1.0,
         });
     }
 
@@ -233,6 +244,29 @@ pub fn check_budget(
     if sample_count >= config.min_samples {
         let anomaly_threshold = ((predicted_p95 as f64) * config.anomaly_multiplier).ceil() as u64;
         if estimated > anomaly_threshold && anomaly_threshold > 0 {
+            let mut pid_map = PID.lock().unwrap();
+            if pid_map.is_none() {
+                *pid_map = Some(HashMap::new());
+            }
+            let state = pid_map.as_mut().unwrap().entry(phase.clone()).or_default();
+            let throttle_factor = crate::pid_throttle::throttle_factor(state, estimated, predicted_p95.max(1));
+            if throttle_factor >= 0.35 {
+                return Ok(BudgetCheckResponse {
+                    allowed: true,
+                    frozen: false,
+                    predicted_p95,
+                    predicted_avg,
+                    sample_count,
+                    ceiling,
+                    reason: format!(
+                        "PID throttle {:.2} instead of freeze (est {estimated} > {anomaly_threshold})",
+                        throttle_factor
+                    ),
+                    wasm_p95,
+                    wasm_ceiling,
+                    throttle_factor,
+                });
+            }
             return Ok(deny(
                 predicted_p95,
                 predicted_avg,
@@ -282,9 +316,37 @@ pub fn check_budget(
         "within predicted token and WASM fuel budget".into()
     };
 
+    let mut pid_map = PID.lock().unwrap();
+    if pid_map.is_none() {
+        *pid_map = Some(HashMap::new());
+    }
+    let state = pid_map.as_mut().unwrap().entry(phase.clone()).or_default();
+    let throttle_factor = crate::pid_throttle::throttle_factor(state, estimated, predicted_p95.max(1));
+    let (allowed, frozen, reason) = if throttle_factor < 0.35 {
+        (
+            false,
+            true,
+            format!(
+                "PID throttle {:.2} below floor — gradual slowdown active (p95 {predicted_p95})",
+                throttle_factor
+            ),
+        )
+    } else if throttle_factor < 1.0 {
+        (
+            true,
+            false,
+            format!(
+                "PID throttle {:.2} — within budget but throttled",
+                throttle_factor
+            ),
+        )
+    } else {
+        (true, false, reason)
+    };
+
     Ok(BudgetCheckResponse {
-        allowed: true,
-        frozen: false,
+        allowed,
+        frozen,
         predicted_p95,
         predicted_avg,
         sample_count,
@@ -292,6 +354,7 @@ pub fn check_budget(
         reason,
         wasm_p95,
         wasm_ceiling,
+        throttle_factor,
     })
 }
 
@@ -314,6 +377,7 @@ fn deny(
         reason,
         wasm_p95,
         wasm_ceiling,
+        throttle_factor: 0.0,
     }
 }
 
