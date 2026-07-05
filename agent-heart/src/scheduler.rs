@@ -65,6 +65,38 @@ pub async fn start(config: &Config, brain: BrainHandle) -> Result<JobScheduler> 
         }
     }
 
+    if config.distillation.enabled {
+        let distill_cfg = config.distillation.clone();
+        let distill_cron = normalize_cron(&distill_cfg.cron);
+        let distill_brain = brain.clone();
+        match Job::new_async(distill_cron.as_str(), move |_uuid, _lock| {
+            let cfg = distill_cfg.clone();
+            let brain = distill_brain.clone();
+            Box::pin(async move {
+                info!("Cron tick: weekly cluster distillation pulse");
+                match crate::distillation::run_cluster_pulse(&brain, cfg.threshold, false).await {
+                    Ok(report) => {
+                        info!("Distillation pulse complete: {:?}", report);
+                        let state_dir = crate::config::state_dir();
+                        std::fs::create_dir_all(&state_dir).ok();
+                        let _ = std::fs::write(
+                            state_dir.join("last_distill.txt"),
+                            chrono::Utc::now().to_rfc3339(),
+                        );
+                    }
+                    Err(e) => tracing::error!("Distillation pulse failed: {e}"),
+                }
+            })
+        }) {
+            Ok(job) => {
+                if let Err(e) = sched.add(job).await {
+                    tracing::error!("Failed to add distillation job: {e}");
+                }
+            }
+            Err(e) => tracing::error!("Invalid distillation cron '{}': {e}", distill_cron),
+        }
+    }
+
     sched.start().await?;
     info!("Scheduler started: cron='{}'", cron_expr);
     Ok(sched)

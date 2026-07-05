@@ -1,3 +1,10 @@
+## [0.8.0] - 2026-07-05
+
+### Added
+- **Phase 6 distillation pulse** — `distillation.rs` weekly HDBSCAN-lite cluster pulse via agent-brain
+- **WASM fuel budget** — `wasm_executions` SQLite table + p95/ceiling alongside LLM token budget
+- **Scheduler** — weekly distillation cron (Sunday 02:00 UTC)
+
 # Changelog
 
 All notable changes to this project will be documented in this file.

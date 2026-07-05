@@ -6,6 +6,7 @@ use std::path::PathBuf;
 pub struct Config {
     pub schedule: ScheduleConfig,
     pub finetune: FinetuneConfig,
+    pub distillation: DistillationConfig,
     pub brain: BrainConfig,
     pub token_budget: TokenBudgetConfig,
     pub server: ServerConfig,
@@ -57,6 +58,23 @@ impl Default for FinetuneConfig {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DistillationConfig {
+    pub enabled: bool,
+    pub cron: String,
+    pub threshold: f64,
+}
+
+impl Default for DistillationConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            cron: crate::distillation::WEEKLY_CRON.into(),
+            threshold: crate::distillation::DEFAULT_CLUSTER_THRESHOLD,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BrainConfig {
     pub binary_path: Option<String>,
@@ -70,6 +88,9 @@ pub struct TokenBudgetConfig {
     pub lookback_days: u32,
     pub min_samples: u64,
     pub brain_db_path: Option<String>,
+    pub max_wasm_fuel_per_route: u64,
+    pub wasm_anomaly_multiplier: f64,
+    pub heart_db_path: Option<String>,
 }
 
 impl Default for TokenBudgetConfig {
@@ -81,6 +102,9 @@ impl Default for TokenBudgetConfig {
             lookback_days: 7,
             min_samples: 20,
             brain_db_path: None,
+            max_wasm_fuel_per_route: 10_000_000,
+            wasm_anomaly_multiplier: 4.0,
+            heart_db_path: None,
         }
     }
 }
