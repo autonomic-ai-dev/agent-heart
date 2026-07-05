@@ -11,6 +11,7 @@ pub mod spine;
 pub mod pid_throttle;
 pub mod token_budget;
 pub mod update;
+pub mod budget_vector;
 
 use anyhow::Result;
 use config::Config;
