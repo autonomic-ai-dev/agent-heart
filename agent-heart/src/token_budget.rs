@@ -142,8 +142,14 @@ fn load_wasm_fuel_samples(path: &Path, since_ms: i64) -> Result<Vec<u64>> {
 pub fn load_stats(config: &TokenBudgetConfig) -> Result<BudgetStatsReport> {
     let db_path = brain_db_path(config);
     let since_ms = lookback_since_ms(config.lookback_days);
-    let phases = phase_stats(&db_path, since_ms)?;
-    let global_samples = load_token_samples(&db_path, since_ms, None)?;
+    let (phases, global_samples) = if db_path.exists() {
+        (
+            phase_stats(&db_path, since_ms)?,
+            load_token_samples(&db_path, since_ms, None)?,
+        )
+    } else {
+        (Vec::new(), Vec::new())
+    };
     let global_avg = average(&global_samples);
     let global_p95 = percentile(&global_samples, 95);
     let heart_path = heart_db_path(config);
@@ -182,26 +188,13 @@ pub fn check_budget(
     }
 
     let db_path = brain_db_path(config);
-    if !db_path.exists() {
-        return Ok(BudgetCheckResponse {
-            allowed: true,
-            frozen: false,
-            predicted_p95: 0,
-            predicted_avg: 0,
-            sample_count: 0,
-            ceiling: config.max_tokens_per_route,
-            reason: format!(
-                "brain.db not found at {} — allowing cold start",
-                db_path.display()
-            ),
-            wasm_p95: 0,
-            wasm_ceiling: config.max_wasm_fuel_per_route,
-        });
-    }
-
     let since_ms = lookback_since_ms(config.lookback_days);
     let phase = normalize_phase(&req.phase);
-    let samples = load_token_samples(&db_path, since_ms, Some(&phase))?;
+    let samples = if db_path.exists() {
+        load_token_samples(&db_path, since_ms, Some(&phase))?
+    } else {
+        Vec::new()
+    };
     let sample_count = samples.len() as u64;
     let predicted_avg = average(&samples);
     let predicted_p95 = percentile(&samples, 95);
@@ -253,21 +246,6 @@ pub fn check_budget(
                 wasm_ceiling,
             ));
         }
-    } else {
-        return Ok(BudgetCheckResponse {
-            allowed: true,
-            frozen: false,
-            predicted_p95,
-            predicted_avg,
-            sample_count,
-            ceiling,
-            reason: format!(
-                "insufficient history ({sample_count}/{} samples) — allowing",
-                config.min_samples
-            ),
-            wasm_p95,
-            wasm_ceiling,
-        });
     }
 
     if estimated_wasm > 0 && wasm_samples.len() as u64 >= config.min_samples {
@@ -288,6 +266,22 @@ pub fn check_budget(
         }
     }
 
+    let reason = if sample_count < config.min_samples {
+        if db_path.exists() {
+            format!(
+                "insufficient token history ({sample_count}/{} samples) — allowing",
+                config.min_samples
+            )
+        } else {
+            format!(
+                "brain.db not found at {} — allowing token cold start",
+                db_path.display()
+            )
+        }
+    } else {
+        "within predicted token and WASM fuel budget".into()
+    };
+
     Ok(BudgetCheckResponse {
         allowed: true,
         frozen: false,
@@ -295,7 +289,7 @@ pub fn check_budget(
         predicted_avg,
         sample_count,
         ceiling,
-        reason: "within predicted token and WASM fuel budget".into(),
+        reason,
         wasm_p95,
         wasm_ceiling,
     })
