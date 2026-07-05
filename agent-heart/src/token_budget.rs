@@ -253,7 +253,8 @@ pub fn check_budget(
                 *pid_map = Some(HashMap::new());
             }
             let state = pid_map.as_mut().unwrap().entry(phase.clone()).or_default();
-            let throttle_factor = crate::pid_throttle::throttle_factor(state, estimated, predicted_p95.max(1));
+            let throttle_factor =
+                crate::pid_throttle::throttle_factor(state, estimated, predicted_p95.max(1));
             if throttle_factor >= 0.35 {
                 return Ok(BudgetCheckResponse {
                     allowed: true,
@@ -326,7 +327,8 @@ pub fn check_budget(
         *pid_map = Some(HashMap::new());
     }
     let state = pid_map.as_mut().unwrap().entry(phase.clone()).or_default();
-    let throttle_factor = crate::pid_throttle::throttle_factor(state, estimated, predicted_p95.max(1));
+    let throttle_factor =
+        crate::pid_throttle::throttle_factor(state, estimated, predicted_p95.max(1));
     let (allowed, frozen, reason) = if throttle_factor < 0.35 {
         (
             false,
@@ -364,7 +366,11 @@ pub fn check_budget(
     })
 }
 
-fn budget_vector_for(req: &BudgetCheckRequest, token_ceiling: u64, wasm_ceiling: u64) -> BudgetVector {
+fn budget_vector_for(
+    req: &BudgetCheckRequest,
+    token_ceiling: u64,
+    wasm_ceiling: u64,
+) -> BudgetVector {
     BudgetVector::from_usage(
         req.estimated_tokens,
         req.estimated_wasm_fuel.unwrap_or(0),

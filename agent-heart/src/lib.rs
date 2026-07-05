@@ -1,17 +1,17 @@
 pub mod brain_client;
+pub mod budget_vector;
 pub mod config;
 pub mod distillation;
 pub mod finetune;
 pub mod lint;
 pub mod log;
 pub mod mcp_server;
+pub mod pid_throttle;
 pub mod scheduler;
 pub mod serve;
 pub mod spine;
-pub mod pid_throttle;
 pub mod token_budget;
 pub mod update;
-pub mod budget_vector;
 
 use anyhow::Result;
 use config::Config;

@@ -53,9 +53,27 @@ mod tests {
 
     #[test]
     fn blocks_when_any_dimension_exceeds_threshold() {
-        let v = BudgetVector::from_usage(900, 100, 50, BudgetVector { tokens: 1000.0, wasm_fuel: 2000.0, latency_ms: 1000.0 });
+        let v = BudgetVector::from_usage(
+            900,
+            100,
+            50,
+            BudgetVector {
+                tokens: 1000.0,
+                wasm_fuel: 2000.0,
+                latency_ms: 1000.0,
+            },
+        );
         assert!(v.allows(1.0));
-        let hot = BudgetVector::from_usage(1200, 100, 50, BudgetVector { tokens: 1000.0, wasm_fuel: 2000.0, latency_ms: 1000.0 });
+        let hot = BudgetVector::from_usage(
+            1200,
+            100,
+            50,
+            BudgetVector {
+                tokens: 1000.0,
+                wasm_fuel: 2000.0,
+                latency_ms: 1000.0,
+            },
+        );
         assert!(!hot.allows(1.0));
     }
 }
