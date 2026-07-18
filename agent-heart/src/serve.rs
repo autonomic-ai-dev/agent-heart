@@ -14,6 +14,25 @@ pub struct AppState {
     pub spine: SpineClient,
 }
 
+pub fn health_json(token_budget_enabled: bool) -> serde_json::Value {
+    serde_json::json!({
+        "ok": true,
+        "service": env!("CARGO_PKG_NAME"),
+        "version": env!("CARGO_PKG_VERSION"),
+        "token_budget_enabled": token_budget_enabled,
+    })
+}
+
+pub fn router(state: Arc<AppState>) -> Router {
+    Router::new()
+        .route("/health", get(health))
+        .route("/gc/status", get(gc_status))
+        .route("/budget/stats", get(budget_stats))
+        .route("/budget/check", post(budget_check))
+        .route("/budget/wasm/record", post(wasm_record))
+        .with_state(state)
+}
+
 pub async fn start_http(config: Config) -> anyhow::Result<()> {
     let spine = SpineClient::new(&config.spine.url, "agent-heart", env!("CARGO_PKG_VERSION"));
     if let Err(e) = spine.register().await {
@@ -28,13 +47,7 @@ pub async fn start_http(config: Config) -> anyhow::Result<()> {
     });
     let port = config.server.port;
     let state = Arc::new(AppState { config, spine });
-    let app = Router::new()
-        .route("/health", get(health))
-        .route("/gc/status", get(gc_status))
-        .route("/budget/stats", get(budget_stats))
-        .route("/budget/check", post(budget_check))
-        .route("/budget/wasm/record", post(wasm_record))
-        .with_state(state);
+    let app = router(state);
     let addr = format!("0.0.0.0:{}", port);
     tracing::info!("HTTP server listening on {}", addr);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
@@ -43,10 +56,7 @@ pub async fn start_http(config: Config) -> anyhow::Result<()> {
 }
 
 async fn health(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "status": "ok",
-        "token_budget_enabled": state.config.token_budget.enabled,
-    }))
+    Json(health_json(state.config.token_budget.enabled))
 }
 
 async fn gc_status(State(_): State<Arc<AppState>>) -> Json<serde_json::Value> {
@@ -98,5 +108,45 @@ async fn wasm_record(
     match token_budget::record_wasm_execution(&state.config.token_budget, &rec) {
         Ok(()) => Json(serde_json::json!({"ok": true})),
         Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string() })),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
+    use std::sync::Arc;
+    use tower::ServiceExt;
+
+    fn test_state() -> Arc<AppState> {
+        Arc::new(AppState {
+            config: Config::default(),
+            spine: SpineClient::new("http://127.0.0.1:3999", "agent-heart", "test"),
+        })
+    }
+
+    #[test]
+    fn health_json_matches_spec() {
+        let body = health_json(true);
+        assert_eq!(body["ok"], true);
+        assert_eq!(body["service"], "agent-heart");
+        assert_eq!(body["version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(body["token_budget_enabled"], true);
+    }
+
+    #[tokio::test]
+    async fn health_route_returns_200() {
+        let app = router(test_state());
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
     }
 }
