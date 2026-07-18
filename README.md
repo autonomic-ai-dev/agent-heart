@@ -106,7 +106,7 @@ Global `--progress` (or `AGENT_PROGRESS=1`) enables structured ProgressTree CLI 
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/health` | Daemon health and uptime |
+| `GET` | `/health` | Liveness probe — `{"ok":true,"service":"agent-heart","version":"…"}` |
 | `POST` | `/budget/check` | Approve or deny a token spend request (body: `{"tokens": N}`) |
 
 ---
