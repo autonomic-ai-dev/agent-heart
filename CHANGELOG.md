@@ -1,3 +1,10 @@
+## [Unreleased]
+
+### Changed
+
+- **CI** — path filter + PR skip for non-runtime docs (aligned with agent-brain)
+- **Docs** — add `docs/CONTEXT.md` for agents
+
 ## [0.8.0] - 2026-07-05
 
 ### Added
