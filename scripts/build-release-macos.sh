@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build agent-heart release and adhoc-sign on macOS.
+# Build agent-heart release and Developer ID–sign on macOS (Apple Silicon).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

@@ -54,4 +54,3 @@ jobs:
             {"version":"${{ steps.meta.outputs.version }}",
              "git_sha":"${{ steps.meta.outputs.git_sha }}",
              "snapshot_run_id":"${{ github.run_id }}"}
-
