@@ -1,5 +1,7 @@
 # agent-heart — Background Maintenance & Quota Controller
 
+Agent context: [docs/CONTEXT.md](docs/CONTEXT.md).
+
 **Cloud-Native role: Controller manager / GC** — scheduled memory GC, token budget gates, and background maintenance for the agent stack.
 
 `agent-heart` is the background controller for Autonomic. It runs periodic garbage collection cycles to keep the knowledge index healthy, exposes a token budget API that prevents agents from burning through LLM quotas, and tracks model fine-tuning schedules.
