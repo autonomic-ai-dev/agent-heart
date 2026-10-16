@@ -75,13 +75,12 @@ sign_macos_binary() {
     echo "    codesign --force --sign - \"$bin\"" >&2
     return 1
   fi
-  xattr -cr "$bin"
-  codesign --force --sign - "$bin"
+  xattr -cr "$bin" 2>/dev/null || true
   if ! codesign --verify --verbose "$bin" >/dev/null 2>&1; then
     echo "ERROR: codesign verify failed for $bin" >&2
     return 1
   fi
-  echo "macOS: cleared download quarantine and adhoc-signed $bin"
+  echo "macOS: cleared download quarantine and verified signature on $bin"
 }
 
 install_from_release() {
