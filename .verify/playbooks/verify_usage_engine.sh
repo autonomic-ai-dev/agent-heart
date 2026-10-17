@@ -17,5 +17,10 @@ cargo test usage_store::tests
 echo "==> [Playbook: Usage Engine] Verifying Heart MCP usage tools..."
 cargo test mcp_server::tests::default_lookback_days
 cargo test mcp_server::tests::default_billing_type
+cargo test mcp_server::tests::test_record_quota_params
+cargo test mcp_server::tests::test_parse_headers_quota_params
+
+echo "==> [Playbook: Usage Engine] Verifying Provider Quota Header Parser..."
+cargo test quota_parser::tests
 
 echo "==> [Playbook: Usage Engine] Passed cleanly (exit 0)."

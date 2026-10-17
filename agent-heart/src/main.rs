@@ -93,6 +93,30 @@ enum BudgetCommands {
         #[arg(long)]
         tokens: u64,
     },
+    /// Record or update a provider subscription quota or rate limit snapshot
+    RecordQuota {
+        #[arg(long)]
+        provider: String,
+        #[arg(long, default_value = "default")]
+        account_or_tier: String,
+        #[arg(long, default_value = "default")]
+        window_type: String,
+        #[arg(long)]
+        utilization_pct: f64,
+        #[arg(long)]
+        reset_at: Option<i64>,
+        #[arg(long)]
+        remaining: Option<u64>,
+    },
+    /// Parse provider response headers from JSON and record quota snapshots
+    ParseHeaders {
+        #[arg(long)]
+        headers_json: String,
+        #[arg(long)]
+        provider: Option<String>,
+        #[arg(long)]
+        account_or_tier: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -196,6 +220,45 @@ async fn main() -> anyhow::Result<()> {
                 if !resp.allowed {
                     std::process::exit(1);
                 }
+            }
+            BudgetCommands::RecordQuota {
+                provider,
+                account_or_tier,
+                window_type,
+                utilization_pct,
+                reset_at,
+                remaining,
+            } => {
+                let snapshot = agent_heart::usage_schema::ProviderQuotaSnapshot {
+                    provider,
+                    account_or_tier,
+                    window_type,
+                    utilization_pct: utilization_pct.clamp(0.0, 100.0),
+                    reset_at,
+                    rate_limit_remaining: remaining,
+                    updated_at: chrono::Utc::now().timestamp_millis(),
+                };
+                let conn = agent_heart::usage_store::UsageStore::open_default()?;
+                agent_heart::usage_store::UsageStore::record_quota(&conn, &snapshot)?;
+                println!("{}", serde_json::to_string_pretty(&snapshot)?);
+            }
+            BudgetCommands::ParseHeaders {
+                headers_json,
+                provider,
+                account_or_tier,
+            } => {
+                let headers: std::collections::HashMap<String, String> =
+                    serde_json::from_str(&headers_json)?;
+                let snapshots = agent_heart::quota_parser::parse_provider_headers(
+                    provider.as_deref(),
+                    &headers,
+                    account_or_tier.as_deref(),
+                );
+                let conn = agent_heart::usage_store::UsageStore::open_default()?;
+                for snap in &snapshots {
+                    agent_heart::usage_store::UsageStore::record_quota(&conn, snap)?;
+                }
+                println!("{}", serde_json::to_string_pretty(&snapshots)?);
             }
         },
     }
