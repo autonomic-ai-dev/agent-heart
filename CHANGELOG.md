@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.0.0-beta.3] - 2026-10-17
+
+### Added
+- **Offline Self-Learning Critic** — Added `heart_self_learn` MCP tool and background critic loop for self-improvement without human intervention.
+
+### Changed
+- Bumped version to `v1.0.0-beta.3` and updated `agent-body-core` dependency to `v1.0.0-beta.3`.
+- Relocated comprehensive `CONTEXT.md` to repository root and aligned documentation hub links.
+
+## [1.0.0-beta.2] - 2026-10-16
+
+### Added
+- Official Homebrew tap formula support (`brew install agent-heart`).
+
+### Changed
+- Consolidated architecture documentation into centralized ecosystem hub.
 
 ## [1.0.0-beta.1] - 2026-10-16
 
