@@ -8,6 +8,15 @@ use crate::usage_schema::{
 pub struct UsageStore;
 
 impl UsageStore {
+    pub fn open_default() -> Result<Connection> {
+        let dir = crate::config::state_dir();
+        std::fs::create_dir_all(&dir)?;
+        let db_path = dir.join("heart.db");
+        let conn = Connection::open(db_path)?;
+        Self::init(&conn)?;
+        Ok(conn)
+    }
+
     pub fn init(conn: &Connection) -> Result<()> {
         conn.execute_batch(
             "
@@ -336,4 +345,127 @@ mod tests {
         assert_eq!(retrieved_policy.monthly_ceiling_usd, 50.0);
         assert_eq!(retrieved_policy.auto_downgrade_model, Some("claude-3-5-haiku".to_string()));
     }
+
+    #[test]
+    fn test_soft_and_hard_budget_alerts() {
+        // Arrange
+        let conn = Connection::open_in_memory().expect("in memory db");
+        UsageStore::init(&conn).expect("init db");
+
+        let policy = BudgetPolicy {
+            monthly_ceiling_usd: 100.0,
+            soft_alert_threshold_pct: 80.0,
+            hard_stop_threshold_pct: 95.0,
+            auto_downgrade_model: Some("claude-3-5-haiku".to_string()),
+        };
+        UsageStore::set_budget_policy(&conn, &policy).expect("set policy");
+
+        // Act 1: Record event with $50 spend (50% - no alert)
+        let event1 = ModelUsageEvent {
+            id: "evt-001".to_string(),
+            timestamp: Utc::now().timestamp_millis(),
+            session_id: None,
+            organ: "agent-brain".to_string(),
+            provider: "anthropic".to_string(),
+            model: "claude-3-7-sonnet".to_string(),
+            billing_type: BillingType::MeteredApi,
+            prompt_tokens: 1_000_000,
+            completion_tokens: 500_000,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+            estimated_cost_usd: 50.0,
+            latency_ms: 1200,
+        };
+        UsageStore::record_event(&conn, &event1).expect("record event 1");
+        let summary1 = UsageStore::query_usage_summary(&conn, 30).expect("query summary");
+
+        // Assert 1
+        assert!(!summary1.soft_alert_triggered);
+        assert!(!summary1.hard_stop_triggered);
+
+        // Act 2: Record event bringing total to $82 (82% - soft alert)
+        let event2 = ModelUsageEvent {
+            id: "evt-002".to_string(),
+            timestamp: Utc::now().timestamp_millis(),
+            session_id: None,
+            organ: "agent-brain".to_string(),
+            provider: "anthropic".to_string(),
+            model: "claude-3-7-sonnet".to_string(),
+            billing_type: BillingType::MeteredApi,
+            prompt_tokens: 1_000_000,
+            completion_tokens: 200_000,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+            estimated_cost_usd: 32.0,
+            latency_ms: 1000,
+        };
+        UsageStore::record_event(&conn, &event2).expect("record event 2");
+        let summary2 = UsageStore::query_usage_summary(&conn, 30).expect("query summary");
+
+        // Assert 2
+        assert!(summary2.soft_alert_triggered);
+        assert!(!summary2.hard_stop_triggered);
+
+        // Act 3: Record event bringing total to $96 (96% - hard stop)
+        let event3 = ModelUsageEvent {
+            id: "evt-003".to_string(),
+            timestamp: Utc::now().timestamp_millis(),
+            session_id: None,
+            organ: "agent-brain".to_string(),
+            provider: "openai".to_string(),
+            model: "gpt-4o".to_string(),
+            billing_type: BillingType::MeteredApi,
+            prompt_tokens: 500_000,
+            completion_tokens: 100_000,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+            estimated_cost_usd: 14.0,
+            latency_ms: 800,
+        };
+        UsageStore::record_event(&conn, &event3).expect("record event 3");
+        let summary3 = UsageStore::query_usage_summary(&conn, 30).expect("query summary");
+
+        // Assert 3
+        assert!(summary3.soft_alert_triggered);
+        assert!(summary3.hard_stop_triggered);
+    }
+
+    #[test]
+    fn test_multi_day_aggregation_and_burn_rate() {
+        // Arrange
+        let conn = Connection::open_in_memory().expect("in memory db");
+        UsageStore::init(&conn).expect("init db");
+
+        let now_ms = Utc::now().timestamp_millis();
+        for i in 0..5 {
+            let event = ModelUsageEvent {
+                id: format!("evt-day-{i}"),
+                timestamp: now_ms - (i as i64 * 86_400_000),
+                session_id: Some("session-multi".to_string()),
+                organ: "agent-body".to_string(),
+                provider: "google".to_string(),
+                model: "gemini-2.0-flash".to_string(),
+                billing_type: BillingType::MeteredApi,
+                prompt_tokens: 20_000,
+                completion_tokens: 5_000,
+                cache_read_tokens: 10_000,
+                cache_write_tokens: 0,
+                estimated_cost_usd: 2.0,
+                latency_ms: 400,
+            };
+            UsageStore::record_event(&conn, &event).expect("record multi-day event");
+        }
+
+        // Act
+        let summary = UsageStore::query_usage_summary(&conn, 7).expect("query 7 days summary");
+
+        // Assert
+        assert_eq!(summary.total_events, 5);
+        assert_eq!(summary.total_prompt_tokens, 100_000);
+        assert_eq!(summary.total_completion_tokens, 25_000);
+        assert_eq!(summary.total_cache_read_tokens, 50_000);
+        assert!((summary.total_cost_usd - 10.0).abs() < 1e-4);
+        assert!(summary.daily_burn_rate_usd > 0.0);
+    }
 }
+
