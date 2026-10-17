@@ -7,7 +7,8 @@ Background maintenance and quota controller for Autonomic. Part of [agent-body](
 | Role | Controller / GC |
 | Binary | `agent-heart` |
 | HTTP | `:3101` |
-| Version | 0.8.2+ |
+| Version | v1.0.0-beta.2 |
+| Docs Hub | [https://autonomic-ai.dev/docs/maintenance](https://autonomic-ai.dev/docs/maintenance) · [Architecture](https://autonomic-ai.dev/docs/architecture) |
 
 ## When to use
 
@@ -29,4 +30,4 @@ Path filter on `agent-heart/**` + Cargo/Makefile/scripts/`.github`. Docs-only PR
 
 ## Related
 
-Spine (calls budget) · brain (GC target) · body (supervisor)
+Operator usage: [https://autonomic-ai.dev/docs/maintenance](https://autonomic-ai.dev/docs/maintenance) · Architecture: [https://autonomic-ai.dev/docs/architecture](https://autonomic-ai.dev/docs/architecture) · Spine (calls budget) · brain (GC target) · body (supervisor)
