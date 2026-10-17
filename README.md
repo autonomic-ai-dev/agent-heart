@@ -1,6 +1,6 @@
 # agent-heart — Background Maintenance & Quota Controller
 
-Agent context: [docs/CONTEXT.md](docs/CONTEXT.md) · Architecture: [https://autonomic-ai.dev/docs/architecture](https://autonomic-ai.dev/docs/architecture).
+Agent context: [docs/CONTEXT.md](docs/CONTEXT.md) · Maintenance Guide: [https://autonomic-ai.dev/docs/maintenance](https://autonomic-ai.dev/docs/maintenance) · Architecture: [https://autonomic-ai.dev/docs/architecture](https://autonomic-ai.dev/docs/architecture).
 
 **Cloud-Native role: Controller manager / GC** — scheduled memory GC, token budget gates, and background maintenance for the agent stack.
 
@@ -195,9 +195,11 @@ memory_threshold_kb = 524288
 
 ---
 
-## Architecture
+## Architecture & Documentation
 
-For the complete 11-organ architecture specification, data flows, and MCP tool contracts, see the centralized [Autonomic AI Architecture Hub](https://autonomic-ai.dev/docs/architecture).
+For complete architectural specifications, token bucket algorithms, and MCP tool contracts, visit the centralized documentation hub:
+- **Maintenance & Budget Guide**: [https://autonomic-ai.dev/docs/maintenance](https://autonomic-ai.dev/docs/maintenance)
+- **Ecosystem Architecture**: [https://autonomic-ai.dev/docs/architecture](https://autonomic-ai.dev/docs/architecture)
 
 ---
 
