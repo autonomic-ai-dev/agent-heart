@@ -128,6 +128,20 @@ impl HeartMcp {
         let text = serde_json::to_string_pretty(&status).unwrap_or_else(|_| "{}".to_string());
         Ok(CallToolResult::success(vec![Content::text(text)]))
     }
+
+    #[tool(
+        description = "Run a background self-learning cycle analyzing recent verify outcomes and synthesizing memory facts"
+    )]
+    async fn heart_self_learn(&self) -> Result<CallToolResult, McpError> {
+        match crate::self_learning::run_self_learning(&self.config) {
+            Ok(report) => {
+                let text =
+                    serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".to_string());
+                Ok(CallToolResult::success(vec![Content::text(text)]))
+            }
+            Err(e) => Err(McpError::internal_error(format!("{e}"), None)),
+        }
+    }
 }
 
 #[tool(tool_box)]
@@ -135,7 +149,7 @@ impl ServerHandler for HeartMcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             instructions: Some(
-                "Background distillation daemon for agent-brain. Tools: heart_gc (run GC), heart_budget_status (token/cost usage), heart_memory_distill (cluster distillation), heart_status (daemon status)."
+                "Background distillation daemon for agent-brain. Tools: heart_gc (run GC), heart_budget_status (token/cost usage), heart_memory_distill (cluster distillation), heart_status (daemon status), heart_self_learn (trigger offline self-learning critic)."
                     .into(),
             ),
             ..Default::default()

@@ -8,11 +8,32 @@ pub struct Config {
     pub schedule: ScheduleConfig,
     pub finetune: FinetuneConfig,
     pub distillation: DistillationConfig,
+    pub self_learning: SelfLearningConfig,
     pub brain: BrainConfig,
     pub token_budget: TokenBudgetConfig,
     pub server: ServerConfig,
     pub spine: SpineConfig,
     pub logging: LoggingConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SelfLearningConfig {
+    pub enabled: bool,
+    pub cron: String,
+    pub min_outcomes: usize,
+    pub lookback_days: u32,
+}
+
+impl Default for SelfLearningConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            cron: "0 */15 * * * *".into(),
+            min_outcomes: 1,
+            lookback_days: 7,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
