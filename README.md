@@ -82,7 +82,9 @@ In standalone mode, agent-heart is a CLI tool for one-shot GC and budget inspect
 |---------|------------|
 | **Scheduled GC** | `serve` + `[heart.schedule]` — keeps brain index healthy without manual cron |
 | **Token budget gate** | `POST /budget/check` — prevents spine from burning unbounded tokens |
+| **Self-learning critic** | `serve` + `[heart.self_learning]` — analyzes `verify_outcomes` and records anti-patterns/reinforcements |
 | **Fine-tune schedule** | Configurable cron — triggers `muscle train` when enough trajectories exist |
+| **Cluster distillation** | `heart_memory_distill` — aggregates related memory facts into high-level concepts |
 | **One-shot GC** | `agent-heart gc` — for CI or ad-hoc maintenance |
 | **Health endpoint** | `GET /health` — for supervisor probes and integration tests |
 | **Anomaly detection** | Statistical outliers in token usage flagged automatically |
@@ -93,12 +95,21 @@ In standalone mode, agent-heart is a CLI tool for one-shot GC and budget inspect
 
 | Command | Description |
 |---------|-------------|
-| `agent-heart serve` | Start daemon with cron GC, fine-tune scheduler, and HTTP API |
+| `agent-heart serve` | Start daemon with cron GC, self-learning critic, fine-tune scheduler, and HTTP API |
 | `agent-heart serve-mcp` | Start MCP stdio server only (no HTTP, no scheduler) |
 | `agent-heart gc` | Run one agent-brain GC pass immediately |
-| `agent-heart status` | Show schedule, last GC, fine-tune state, budget ceiling |
+| `agent-heart learn` | Run one offline self-learning cycle immediately |
+| `agent-heart status` | Show schedule, last GC, self-learning state, fine-tune state, budget ceiling |
 | `agent-heart budget check --tokens N` | Check whether N tokens are within budget (used by spine) |
 | `agent-heart budget stats` | Show historical usage, anomaly detection, and predictions |
+
+### MCP Tools (`agent-heart serve-mcp`)
+
+- `heart_gc`: Trigger memory garbage collection on agent-brain
+- `heart_budget_status`: Retrieve token/cost metrics from brain retrieval logs
+- `heart_memory_distill`: Run cluster distillation on memory facts
+- `heart_self_learn`: Run an offline self-learning analysis cycle over recent verification outcomes
+- `heart_status`: Check daemon runtime status and timestamps
 
 Global `--progress` (or `AGENT_PROGRESS=1`) enables structured ProgressTree CLI output.
 
@@ -147,13 +158,39 @@ agent-heart status
 Section `[heart]` in `~/.autonomic/config.toml`. State under `~/.autonomic/state/heart/`.
 
 ```toml
+# Scheduled GC maintenance for agent-brain
 [heart.schedule]
 enabled = true
 cron = "0 3 * * *"
 
+# Token and WASM fuel quota controller
 [heart.token_budget]
 enabled = true
-ceiling = 8000
+max_tokens_per_route = 8000
+max_wasm_fuel_per_route = 10000000
+wasm_anomaly_multiplier = 4.0
+
+# Weekly memory cluster distillation
+[heart.distillation]
+enabled = true
+cron = "0 0 2 * * 0"
+threshold = 0.75
+
+# Offline self-learning critic (inspects verify_outcomes, records anti-patterns/reinforcements)
+# Can also be toggled with environment variable AUTONOMIC_SELF_LEARNING=1
+[heart.self_learning]
+enabled = true
+cron = "0 */15 * * * *"
+min_outcomes = 1
+lookback_days = 7
+
+# Nightly MLX dataset pipeline & model finetuning
+[heart.finetune]
+enabled = true
+cron = "0 0 4 * * *"
+min_merged_entries = 1
+ui_threshold = 1.0
+memory_threshold_kb = 524288
 ```
 
 ---

@@ -49,6 +49,8 @@ enum Commands {
     Distill,
     /// Run dataset pipeline + MLX finetune once and exit
     Finetune,
+    /// Run offline self-learning cycle once and exit
+    Learn,
     /// Show daemon status
     Status,
     /// Lint a bash script for common issues
@@ -109,11 +111,21 @@ async fn main() -> anyhow::Result<()> {
         Commands::Gc => agent_heart::run_gc_once(config).await?,
         Commands::Distill => agent_heart::run_distill_once(config).await?,
         Commands::Finetune => agent_heart::run_finetune_once(config).await?,
+        Commands::Learn => {
+            let report = agent_heart::self_learning::run_self_learning(&config)?;
+            println!("Self-learning complete:");
+            println!("  Analyzed outcomes: {}", report.analyzed_outcomes);
+            println!("  Successes: {}", report.successful_outcomes);
+            println!("  Failures: {}", report.failed_outcomes);
+            println!("  Synthesized memory facts: {}", report.synthesized_facts);
+        }
         Commands::Status => {
             let state_dir = agent_heart::config::state_dir();
             let last_gc = std::fs::read_to_string(state_dir.join("last_gc.txt"))
                 .unwrap_or_else(|_| "never".into());
             let last_finetune = std::fs::read_to_string(state_dir.join("last_finetune.txt"))
+                .unwrap_or_else(|_| "never".into());
+            let last_learn_ms = std::fs::read_to_string(state_dir.join("last_learning_ms.txt"))
                 .unwrap_or_else(|_| "never".into());
             println!("agent-heart status");
             println!("  config: {}", config_path().display());
@@ -122,11 +134,17 @@ async fn main() -> anyhow::Result<()> {
                 config.schedule.cron, config.schedule.enabled
             );
             println!(
+                "  self_learning: {} (enabled: {})",
+                config.self_learning.cron,
+                agent_heart::self_learning::is_enabled(&config)
+            );
+            println!(
                 "  finetune: {} (enabled: {}, min_entries: {})",
                 config.finetune.cron, config.finetune.enabled, config.finetune.min_merged_entries
             );
             println!("  last_gc: {}", last_gc);
             println!("  last_finetune: {}", last_finetune);
+            println!("  last_learning_ms: {}", last_learn_ms);
             println!(
                 "  token_budget: enabled={} ceiling={} anomaly_x={}",
                 config.token_budget.enabled,

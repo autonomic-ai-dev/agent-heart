@@ -8,6 +8,7 @@ pub mod log;
 pub mod mcp_server;
 pub mod pid_throttle;
 pub mod scheduler;
+pub mod self_learning;
 pub mod serve;
 pub mod spine;
 pub mod token_budget;

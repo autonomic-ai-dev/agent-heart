@@ -3,10 +3,12 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(default)]
 pub struct Config {
     pub schedule: ScheduleConfig,
     pub finetune: FinetuneConfig,
     pub distillation: DistillationConfig,
+    pub self_learning: SelfLearningConfig,
     pub brain: BrainConfig,
     pub token_budget: TokenBudgetConfig,
     pub server: ServerConfig,
@@ -15,6 +17,27 @@ pub struct Config {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SelfLearningConfig {
+    pub enabled: bool,
+    pub cron: String,
+    pub min_outcomes: usize,
+    pub lookback_days: u32,
+}
+
+impl Default for SelfLearningConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            cron: "0 */15 * * * *".into(),
+            min_outcomes: 1,
+            lookback_days: 7,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ScheduleConfig {
     pub cron: String,
     pub enabled: bool,
@@ -30,6 +53,7 @@ impl Default for ScheduleConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct FinetuneConfig {
     pub enabled: bool,
     pub cron: String,
@@ -59,6 +83,7 @@ impl Default for FinetuneConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct DistillationConfig {
     pub enabled: bool,
     pub cron: String,
@@ -76,11 +101,13 @@ impl Default for DistillationConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(default)]
 pub struct BrainConfig {
     pub binary_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct TokenBudgetConfig {
     pub enabled: bool,
     pub max_tokens_per_route: u64,
@@ -110,6 +137,7 @@ impl Default for TokenBudgetConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ServerConfig {
     pub port: u16,
 }
@@ -121,6 +149,7 @@ impl Default for ServerConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct SpineConfig {
     pub url: String,
 }
@@ -134,6 +163,7 @@ impl Default for SpineConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct LoggingConfig {
     pub level: String,
     pub file: Option<String>,
@@ -176,4 +206,22 @@ pub fn config_path() -> PathBuf {
 
 pub fn state_dir() -> PathBuf {
     agent_body_core::organ_state_dir("heart")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deserialize_partial_config() {
+        let json_str = r#"{
+            "token_budget": {
+                "max_tokens_per_route": 4000
+            }
+        }"#;
+        let config: Config = serde_json::from_str(json_str).expect("should deserialize partial config with defaults");
+        assert_eq!(config.token_budget.max_tokens_per_route, 4000);
+        assert_eq!(config.token_budget.max_wasm_fuel_per_route, 10_000_000);
+        assert!(config.distillation.enabled);
+    }
 }

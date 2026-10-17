@@ -97,6 +97,29 @@ pub async fn start(config: &Config, brain: BrainHandle) -> Result<JobScheduler> 
         }
     }
 
+    if crate::self_learning::is_enabled(config) {
+        let learn_cfg = config.clone();
+        let learn_cron = normalize_cron(&config.self_learning.cron);
+        match Job::new_async(learn_cron.as_str(), move |_uuid, _lock| {
+            let cfg = learn_cfg.clone();
+            Box::pin(async move {
+                info!("Cron tick: offline self-learning critic");
+                if let Err(e) = crate::self_learning::run_self_learning(&cfg) {
+                    tracing::error!("Self-learning cycle failed: {e}");
+                }
+            })
+        }) {
+            Ok(job) => {
+                if let Err(e) = sched.add(job).await {
+                    tracing::error!("Failed to add self-learning job: {e}");
+                } else {
+                    info!("Self-learning scheduler started: cron='{}'", learn_cron);
+                }
+            }
+            Err(e) => tracing::error!("Invalid self-learning cron '{}': {e}", learn_cron),
+        }
+    }
+
     sched.start().await?;
     info!("Scheduler started: cron='{}'", cron_expr);
     Ok(sched)
