@@ -1,7 +1,7 @@
 # agent-heart — Deep Operational & Architectural Context for Agents
 
 > **Controller Manager, Token Budget Gate & Memory GC** — In-depth architectural guide, token accounting mechanics, background maintenance scheduler, CLI matrix, HTTP/MCP contracts, and failure recovery runbooks for `agent-heart`.  
-> **Ecosystem Version Baseline:** `v1.0.0-beta.3`  
+> **Ecosystem Version Baseline:** `v1.0.0-beta.3.2`  
 > **Documentation Hub:** [https://autonomic-ai.dev/docs/maintenance](https://autonomic-ai.dev/docs/maintenance) · [Architecture Hub](https://autonomic-ai.dev/docs/architecture)  
 > **Port:** HTTP API `:3101`  
 > **Default Workspace & State:** `~/.autonomic/heart/` · `~/.autonomic/state/heart/`

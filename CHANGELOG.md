@@ -5,13 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0-beta.3.2] - 2026-10-18
 
 ### Added
 - **Provider Quota Header Ingestion Engine** — Added `quota_parser` module for case-insensitive extraction of Anthropic (5h rolling), OpenAI (TPM/RPM), and Google Gemini rate limit headers.
 - **MCP Quota Ingestion Tools** — Exposed `heart_record_quota` and `heart_parse_and_record_headers` in `HeartMcp` for persistent UPSERTs to `provider_quotas`.
 - **Budget CLI Commands** — Added `agent-heart budget record-quota` and `agent-heart budget parse-headers` commands.
 - **Verification Playbook Expansion** — Extended `.verify/playbooks/verify_usage_engine.sh` to validate quota parameters and provider header parsing.
+- **CI Skip Path Optimizations**: Enhanced `.github/workflows/ci.yml` to skip pipeline execution when changes only affect `CHANGELOG.md`, `CONTEXT.md`, and markdown documentation files.
+
+### Changed
+- Bumped version to `v1.0.0-beta.3.2`.
 
 ## [1.0.0-beta.3.1] - 2026-10-17
 
