@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.0.0-beta.3.1] - 2026-10-17
+
+### Added
+- **Core Model Usage Data Models** — Introduced `ModelUsageRecord`, `TokenUsage`, `UsageQueryFilter`, and `AggregatedUsageSummary` to model granular LLM token telemetry.
+- **Provider Pricing Catalog** — Added built-in pricing engine covering major LLM providers (OpenAI GPT-4o, Anthropic Claude 3.5 Sonnet / Haiku, Google Gemini 2.5 Pro / Flash, DeepSeek, and local Ollama / vLLM at $0.00).
+- **SQLite Usage Persistence Store** — Migrated `heart.db` with indexed `model_usage` table for sub-millisecond aggregation across time windows.
+- **MCP Usage Governance Tools** — Exposed `heart_record_usage`, `heart_get_usage_summary`, and `heart_check_budget` tools for connected agent hosts.
+- **Verification Playbook Suite** — Added comprehensive `.verify/run.sh` playbooks validating pricing math, SQL insertion, and budget limits.
+
+### Changed
+- Bumped version to `v1.0.0-beta.3.1`.
+
 ## [1.0.0-beta.3] - 2026-10-17
 
 ### Added
