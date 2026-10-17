@@ -8,6 +8,7 @@ pub mod log;
 pub mod mcp_server;
 pub mod pid_throttle;
 pub mod pricing_catalog;
+pub mod quota_parser;
 pub mod scheduler;
 pub mod self_learning;
 pub mod serve;
@@ -16,7 +17,6 @@ pub mod token_budget;
 pub mod update;
 pub mod usage_schema;
 pub mod usage_store;
-
 
 use anyhow::Result;
 use config::Config;

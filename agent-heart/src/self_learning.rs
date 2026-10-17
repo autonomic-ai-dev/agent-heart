@@ -114,10 +114,7 @@ pub fn run_self_learning(config: &Config) -> Result<SelfLearningReport> {
                 ),
             )
         } else {
-            let cause = row
-                .cause_tag
-                .as_deref()
-                .unwrap_or("unknown");
+            let cause = row.cause_tag.as_deref().unwrap_or("unknown");
             (
                 "autonomic/anti-pattern",
                 format!(

@@ -1,9 +1,7 @@
+use crate::usage_schema::{BudgetPolicy, ModelUsageEvent, ProviderQuotaSnapshot, UsageSummary};
 use anyhow::{Context, Result};
 use chrono::Utc;
 use rusqlite::{params, Connection};
-use crate::usage_schema::{
-    BudgetPolicy, ModelUsageEvent, ProviderQuotaSnapshot, UsageSummary,
-};
 
 pub struct UsageStore;
 
@@ -237,15 +235,27 @@ impl UsageStore {
         )?;
 
         let mut rows = stmt.query(params![start_ts])?;
-        let (prompt, compl, cache, cost, count): (i64, i64, i64, f64, i64) = if let Some(row) = rows.next()? {
-            (row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)
-        } else {
-            (0, 0, 0, 0.0, 0)
-        };
+        let (prompt, compl, cache, cost, count): (i64, i64, i64, f64, i64) =
+            if let Some(row) = rows.next()? {
+                (
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                )
+            } else {
+                (0, 0, 0, 0.0, 0)
+            };
 
         let daily_burn_rate_usd = cost / (days as f64);
         let days_in_month = 30.0;
-        let day_of_month = (Utc::now().format("%d").to_string().parse::<f64>().unwrap_or(15.0)).min(30.0);
+        let day_of_month = (Utc::now()
+            .format("%d")
+            .to_string()
+            .parse::<f64>()
+            .unwrap_or(15.0))
+        .min(30.0);
         let days_remaining = (days_in_month - day_of_month).max(0.0);
         let projected_month_end_usd = cost + (daily_burn_rate_usd * days_remaining);
         let remaining_budget_usd = (policy.monthly_ceiling_usd - cost).max(0.0);
@@ -343,7 +353,10 @@ mod tests {
         assert_eq!(quotas[0].provider, "anthropic");
         assert_eq!(quotas[0].utilization_pct, 42.0);
         assert_eq!(retrieved_policy.monthly_ceiling_usd, 50.0);
-        assert_eq!(retrieved_policy.auto_downgrade_model, Some("claude-3-5-haiku".to_string()));
+        assert_eq!(
+            retrieved_policy.auto_downgrade_model,
+            Some("claude-3-5-haiku".to_string())
+        );
     }
 
     #[test]
@@ -468,4 +481,3 @@ mod tests {
         assert!(summary.daily_burn_rate_usd > 0.0);
     }
 }
-

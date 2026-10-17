@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
 use crate::usage_schema::BillingType;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct TokenUsageCounts {
@@ -148,7 +148,8 @@ impl PricingCatalog {
         tokens: TokenUsageCounts,
     ) -> f64 {
         // Free tiers have zero billed dollar cost
-        if billing_type == BillingType::LocalFree || billing_type == BillingType::SubscriptionQuota {
+        if billing_type == BillingType::LocalFree || billing_type == BillingType::SubscriptionQuota
+        {
             return 0.0;
         }
 
@@ -206,12 +207,8 @@ mod tests {
             BillingType::SubscriptionQuota,
             tokens,
         );
-        let local_cost = catalog.calculate_cost(
-            "local",
-            "deepseek-r1:8b",
-            BillingType::LocalFree,
-            tokens,
-        );
+        let local_cost =
+            catalog.calculate_cost("local", "deepseek-r1:8b", BillingType::LocalFree, tokens);
 
         // Assert
         assert_eq!(sub_cost, 0.0);

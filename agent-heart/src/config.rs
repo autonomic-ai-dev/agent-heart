@@ -219,7 +219,8 @@ mod tests {
                 "max_tokens_per_route": 4000
             }
         }"#;
-        let config: Config = serde_json::from_str(json_str).expect("should deserialize partial config with defaults");
+        let config: Config = serde_json::from_str(json_str)
+            .expect("should deserialize partial config with defaults");
         assert_eq!(config.token_budget.max_tokens_per_route, 4000);
         assert_eq!(config.token_budget.max_wasm_fuel_per_route, 10_000_000);
         assert!(config.distillation.enabled);
