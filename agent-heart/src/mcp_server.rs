@@ -404,7 +404,8 @@ mod tests {
             "reset_at": 1776451200000,
             "rate_limit_remaining": 42000
         }"#;
-        let params: RecordQuotaParams = serde_json::from_str(json).expect("deserialize RecordQuotaParams");
+        let params: RecordQuotaParams =
+            serde_json::from_str(json).expect("deserialize RecordQuotaParams");
         assert_eq!(params.provider, "anthropic");
         assert_eq!(params.account_or_tier, "Claude Code (5h rolling)");
         assert_eq!(params.window_type, "5h_rolling");
@@ -422,8 +423,12 @@ mod tests {
             },
             "provider": "openai"
         }"#;
-        let params: ParseHeadersQuotaParams = serde_json::from_str(json).expect("deserialize ParseHeadersQuotaParams");
+        let params: ParseHeadersQuotaParams =
+            serde_json::from_str(json).expect("deserialize ParseHeadersQuotaParams");
         assert_eq!(params.provider, Some("openai".to_string()));
-        assert_eq!(params.headers.get("x-ratelimit-limit-tokens"), Some(&"1000000".to_string()));
+        assert_eq!(
+            params.headers.get("x-ratelimit-limit-tokens"),
+            Some(&"1000000".to_string())
+        );
     }
 }
