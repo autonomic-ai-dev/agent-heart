@@ -30,6 +30,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/budget/stats", get(budget_stats))
         .route("/budget/check", post(budget_check))
         .route("/budget/wasm/record", post(wasm_record))
+        .route("/outcomes/record", post(outcome_record))
         .with_state(state)
 }
 
@@ -111,6 +112,17 @@ async fn wasm_record(
     }
 }
 
+async fn outcome_record(
+    State(state): State<Arc<AppState>>,
+    Json(outcome): Json<crate::outcomes::ExecutionOutcome>,
+) -> Json<serde_json::Value> {
+    let path = token_budget::heart_db_path(&state.config.token_budget);
+    match crate::outcomes::record(&path, &outcome) {
+        Ok(()) => Json(serde_json::json!({"ok": true})),
+        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string() })),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -133,6 +145,52 @@ mod tests {
         assert_eq!(body["service"], "agent-heart");
         assert_eq!(body["version"], env!("CARGO_PKG_VERSION"));
         assert_eq!(body["token_budget_enabled"], true);
+    }
+
+    #[tokio::test]
+    async fn outcome_route_stores_valid_report_and_rejects_bad_label() {
+        let dir = std::env::temp_dir().join(format!("heart-outcome-route-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let db = dir.join("heart.db");
+        let mut config = Config::default();
+        config.token_budget.heart_db_path = Some(db.display().to_string());
+        let state = Arc::new(AppState {
+            config,
+            spine: SpineClient::new("http://127.0.0.1:3999", "agent-heart", "test"),
+        });
+        let post = |id: &str| {
+            Request::builder()
+                .method("POST")
+                .uri("/outcomes/record")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "id": id,
+                        "organ": "agent-muscle",
+                        "kind": "bash",
+                        "success": true,
+                        "exit_code": 0,
+                        "duration_ms": 5
+                    })
+                    .to_string(),
+                ))
+                .unwrap()
+        };
+
+        let accepted = router(state.clone()).oneshot(post("job-1")).await.unwrap();
+        assert_eq!(accepted.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(accepted.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert!(String::from_utf8_lossy(&bytes).contains("\"ok\":true"));
+        assert_eq!(crate::outcomes::count(&db).unwrap(), 1);
+
+        let rejected = router(state).oneshot(post("job 1")).await.unwrap();
+        let bytes = axum::body::to_bytes(rejected.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert!(String::from_utf8_lossy(&bytes).contains("\"ok\":false"));
+        assert_eq!(crate::outcomes::count(&db).unwrap(), 1);
     }
 
     #[tokio::test]
