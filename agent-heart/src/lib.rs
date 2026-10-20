@@ -6,6 +6,7 @@ pub mod finetune;
 pub mod lint;
 pub mod log;
 pub mod mcp_server;
+pub mod outcomes;
 pub mod pid_throttle;
 pub mod pricing_catalog;
 pub mod quota_parser;
