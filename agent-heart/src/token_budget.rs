@@ -413,11 +413,11 @@ fn lookback_since_ms(days: u32) -> i64 {
 }
 
 fn normalize_phase(phase: &str) -> String {
-    let p = phase.trim().to_lowercase();
-    if p.is_empty() {
-        "implementing".into()
-    } else {
-        p
+    match phase.trim().to_lowercase().as_str() {
+        "" | "implementation" | "implement" => "implementing".into(),
+        "review" => "reviewing".into(),
+        "debug" => "debugging".into(),
+        other => other.into(),
     }
 }
 
@@ -468,7 +468,10 @@ fn phase_stats(path: &Path, since_ms: i64) -> Result<Vec<PhaseTokenStats>> {
     let mut grouped: std::collections::HashMap<String, Vec<u64>> = std::collections::HashMap::new();
     for row in rows {
         let (phase, tokens) = row?;
-        grouped.entry(phase).or_default().push(tokens.max(0) as u64);
+        grouped
+            .entry(normalize_phase(&phase))
+            .or_default()
+            .push(tokens.max(0) as u64);
     }
 
     let mut out: Vec<PhaseTokenStats> = grouped
@@ -641,5 +644,15 @@ mod tests {
         .unwrap();
         assert!(!resp.allowed);
         assert!(resp.wasm_p95 > 0);
+    }
+
+    #[test]
+    fn phase_aliases_normalise_to_one_bucket() {
+        assert_eq!(normalize_phase("implementation"), "implementing");
+        assert_eq!(normalize_phase(" Implementing "), "implementing");
+        assert_eq!(normalize_phase(""), "implementing");
+        assert_eq!(normalize_phase("review"), "reviewing");
+        assert_eq!(normalize_phase("debug"), "debugging");
+        assert_eq!(normalize_phase("planning"), "planning");
     }
 }
