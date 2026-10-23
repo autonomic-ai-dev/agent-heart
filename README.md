@@ -34,7 +34,7 @@ flowchart TD
         Spine["agent-spine"] --> Check["POST /budget/check"]
         Check --> Ceiling["Under ceiling?"]
         Ceiling -->|Yes| Allow["Allow: return OK"]
-        Ceiling -->|No| Deny["Deny: return 429"]
+        Ceiling -->|No| Deny["Deny: decision.frozen = true"]
     end
 
     subgraph Analytics
@@ -120,7 +120,11 @@ Global `--progress` (or `AGENT_PROGRESS=1`) enables structured ProgressTree CLI 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/health` | Liveness probe — `{"ok":true,"service":"agent-heart","version":"…"}` |
-| `POST` | `/budget/check` | Approve or deny a token spend request (body: `{"tokens": N}`) |
+| `POST` | `/budget/check` | Check a token spend request. Body: `{"phase": "...", "estimated_tokens": N}`. Always HTTP 200 with `{"ok": true, "decision": {...}}`. A denial is `decision.frozen == true`, with the reason in `decision.reason`. |
+| `GET` | `/gc/status` | Time of the last GC pass |
+| `GET` | `/budget/stats` | Stored budget statistics |
+| `POST` | `/budget/wasm/record` | Record one WASM execution for fuel accounting |
+| `POST` | `/outcomes/record` | Record one execution outcome for the self-learning critic |
 
 ---
 
