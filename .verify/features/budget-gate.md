@@ -31,6 +31,14 @@ Summary: agent-heart answers whether a requested token spend fits the configured
   - Behaviour: `agent-heart budget stats` reads recorded usage and flags statistical outliers.
   - Outcome: A printed summary with history, anomaly flags, and predictions.
 
+## Code
+
+- `agent-heart/src/serve.rs`
+- `agent-heart/src/token_budget.rs`
+- `agent-heart/src/budget_vector.rs`
+- `agent-heart/src/pid_throttle.rs`
+- `agent-heart/src/spine.rs`
+
 ## How to get to it (user POV)
 
 - CLI: `agent-heart budget check --tokens 5000`
