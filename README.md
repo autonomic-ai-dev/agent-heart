@@ -1,222 +1,51 @@
-# agent-heart — Background Maintenance & Quota Controller
+# agent-heart
 
-Agent context: [CONTEXT.md](CONTEXT.md) · Maintenance Guide: [https://autonomic-ai.dev/docs/maintenance](https://autonomic-ai.dev/docs/maintenance) · Architecture: [https://autonomic-ai.dev/docs/architecture](https://autonomic-ai.dev/docs/architecture).
+`agent-heart` is the background controller for Autonomic. It runs scheduled memory garbage collection, enforces the token budget that agent-spine checks before LLM-heavy nodes, and records execution outcomes for the self-learning critic.
 
-**Cloud-Native role: Controller manager / GC** — scheduled memory GC, token budget gates, and background maintenance for the agent stack.
+Docs: [autonomic-ai-dev.vercel.app](https://autonomic-ai-dev.vercel.app)
 
-`agent-heart` is the background controller for Autonomic. It runs periodic garbage collection cycles to keep the knowledge index healthy, exposes a token budget API that prevents agents from burning through LLM quotas, and tracks model fine-tuning schedules.
+## Quick start
 
----
-
-## Under the Hood: How it Works
-
-Left to run indefinitely, an agent's memory index accumulates stale entries and embedding bloat. Furthermore, without a budget gate, a runaway agent can burn arbitrarily many tokens in an infinite retry loop.
-
-`agent-heart` solves both by running as a lightweight background daemon:
-
-1. **Preventive Maintenance (Cron)** 
-It uses a native `tokio-cron` scheduler to trigger background maintenance. For example, at 3:00 AM every night, it triggers `agent-brain gc` to prune stale facts, deduplicate vector embeddings, and vacuum the local SQLite database, ensuring retrieval stays lightning fast.
-
-2. **Cost Control (Token Budget API)** 
-It exposes a strict `/budget/check` HTTP endpoint. Before `agent-spine` executes any LLM-heavy node, it queries `agent-heart`. If the requested token spend exceeds the daily ceiling or triggers an anomaly detection rule, `agent-heart` denies the request and safely halts the workflow before you incur massive API bills.
-
-```mermaid
-flowchart TD
-    HeartDaemon["agent-heart serve :3101"]
-
-    subgraph Scheduled
-        Cron["Cron: 0 3 * * *"] --> GC["agent-brain gc"]
-        Cron --> Finetune["Check fine-tune schedule"]
-        GC --> Vacuum["Vacuum knowledge store"]
-    end
-
-    subgraph BudgetGate
-        Spine["agent-spine"] --> Check["POST /budget/check"]
-        Check --> Ceiling["Under ceiling?"]
-        Ceiling -->|Yes| Allow["Allow: return OK"]
-        Ceiling -->|No| Deny["Deny: decision.frozen = true"]
-    end
-
-    subgraph Analytics
-        Stats["agent-heart budget stats"] --> Anomaly["Anomaly detection"]
-        Stats --> History["Historical usage"]
-    end
-
-    HeartDaemon --> Scheduled
-    HeartDaemon --> BudgetGate
-    HeartDaemon --> Analytics
+```bash
+brew tap autonomic-ai-dev/tap && brew install agent-heart
+agent-heart status
+agent-heart serve
 ```
-
----
-
-## Standalone vs Integrated
-
-| Mode | What you type | What happens |
-|------|--------------|--------------|
-| **Standalone** | `agent-heart gc` | One-shot garbage collection pass |
-| **Standalone** | `agent-heart budget check --tokens 5000` | Manual budget gate check |
-| **Standalone** | `agent-heart serve-mcp` | MCP stdio server only (for gateway aggregation) |
-| **Standalone** | `agent-heart serve` | Daemon with cron GC + HTTP API on `:3101` |
-| **Integrated** | `autonomic start` | Supervised by agent-body; reads `[heart]` from unified config |
-| **Integrated** | agent-spine budget gate | Spine calls `POST /budget/check` automatically before LLM nodes |
-| **Integrated** | agent-heart → agent-brain | `gc` command triggers agent-brain's index maintenance |
-
-In standalone mode, agent-heart is a CLI tool for one-shot GC and budget inspection. In integrated mode, it runs as a supervised daemon that agent-spine queries automatically, and agent-body ensures it starts after NATS and nerves.
-
----
-
-## Why agent-heart?
-
-| Problem | agent-heart answer |
-|---------|-------------------|
-| Index bloat degrades retrieval quality over weeks | **Scheduled GC** — cron-driven `agent-brain gc` without manual ops |
-| Runaway token spend from unbounded agent runs | **Budget gate** — spine checks `/budget/check` before LLM-heavy nodes |
-| No visibility into maintenance state | **`status`** — shows last GC, fine-tune schedule, budget ceiling |
-| Background maintenance blocks the IDE | **HTTP daemon** — `:3101`, separate from MCP stdio, non-blocking |
-
----
-
-## What you get
-
-| Feature | Why use it |
-|---------|------------|
-| **Scheduled GC** | `serve` + `[heart.schedule]` — keeps brain index healthy without manual cron |
-| **Token budget gate** | `POST /budget/check` — prevents spine from burning unbounded tokens |
-| **Self-learning critic** | `serve` + `[heart.self_learning]` — analyzes `verify_outcomes` and records anti-patterns/reinforcements |
-| **Fine-tune schedule** | Configurable cron — triggers `muscle train` when enough trajectories exist |
-| **Cluster distillation** | `heart_memory_distill` — aggregates related memory facts into high-level concepts |
-| **One-shot GC** | `agent-heart gc` — for CI or ad-hoc maintenance |
-| **Health endpoint** | `GET /health` — for supervisor probes and integration tests |
-| **Anomaly detection** | Statistical outliers in token usage flagged automatically |
-
----
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `agent-heart serve` | Start daemon with cron GC, self-learning critic, fine-tune scheduler, and HTTP API |
-| `agent-heart serve-mcp` | Start MCP stdio server only (no HTTP, no scheduler) |
-| `agent-heart gc` | Run one agent-brain GC pass immediately |
-| `agent-heart learn` | Run one offline self-learning cycle immediately |
-| `agent-heart status` | Show schedule, last GC, self-learning state, fine-tune state, budget ceiling |
-| `agent-heart budget check --tokens N` | Check whether N tokens are within budget (used by spine) |
-| `agent-heart budget stats` | Show historical usage, anomaly detection, and predictions |
-
-### MCP Tools (`agent-heart serve-mcp`)
-
-- `heart_gc`: Trigger memory garbage collection on agent-brain
-- `heart_budget_status`: Retrieve token/cost metrics from brain retrieval logs
-- `heart_memory_distill`: Run cluster distillation on memory facts
-- `heart_self_learn`: Run an offline self-learning analysis cycle over recent verification outcomes
-- `heart_status`: Check daemon runtime status and timestamps
-
-Global `--progress` (or `AGENT_PROGRESS=1`) enables structured ProgressTree CLI output.
-
----
+| Command | What it does |
+|---------|--------------|
+| `agent-heart serve` | Runs the daemon: scheduled GC, self-learning, fine-tune scheduler, and the HTTP API on port 3101 |
+| `agent-heart serve-mcp` | Runs the MCP stdio server only |
+| `agent-heart gc` | Runs one garbage collection pass now |
+| `agent-heart learn` | Runs one self-learning cycle now |
+| `agent-heart status` | Shows the schedule, last GC, and budget ceiling |
+| `agent-heart budget check --tokens N` | Checks whether N tokens are within budget |
+| `agent-heart budget stats` | Shows usage history and anomalies |
 
 ## HTTP API
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/health` | Liveness probe — `{"ok":true,"service":"agent-heart","version":"…"}` |
-| `POST` | `/budget/check` | Check a token spend request. Body: `{"phase": "...", "estimated_tokens": N}`. Always HTTP 200 with `{"ok": true, "decision": {...}}`. A denial is `decision.frozen == true`, with the reason in `decision.reason`. |
+| `GET` | `/health` | Liveness probe |
+| `POST` | `/budget/check` | Checks a token request. Body: `{"phase": "...", "estimated_tokens": N}`. Always HTTP 200 with `{"ok": true, "decision": {...}}`. A denial is `decision.frozen == true`. |
 | `GET` | `/gc/status` | Time of the last GC pass |
 | `GET` | `/budget/stats` | Stored budget statistics |
-| `POST` | `/budget/wasm/record` | Record one WASM execution for fuel accounting |
-| `POST` | `/outcomes/record` | Record one execution outcome for the self-learning critic |
+| `POST` | `/budget/wasm/record` | Records one WASM execution for fuel accounting |
+| `POST` | `/outcomes/record` | Records one execution outcome for the self-learning critic |
 
----
-
-## Quick Install
-
-### Homebrew (macOS — Recommended)
-
-```bash
-brew tap autonomic-ai-dev/tap
-brew install agent-heart
-
-# Or install the full stack:
-brew install autonomic-stack
-```
-
-### Direct Download / curl
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/autonomic-ai-dev/agent-heart/master/scripts/install.sh | bash
-
-# Or install the full stack via curl:
-curl -fsSL https://raw.githubusercontent.com/autonomic-ai-dev/agent-body/master/scripts/install-all-organs.sh | bash
-```
-
-Verify:
-```bash
-agent-heart version
-agent-heart status
-```
-
----
+Failures on these routes return HTTP 500 with `{"ok": false, "error": ...}`.
 
 ## Configuration
 
-Section `[heart]` in `~/.autonomic/config.toml`. State under `~/.autonomic/state/heart/`.
+Settings live in the `[heart]` section of `~/.autonomic/config.toml`. Each feature has its own sub-section: `schedule`, `token_budget`, `distillation`, `self_learning`, and `finetune`. State is stored under `~/.autonomic/state/heart/`.
 
-```toml
-# Scheduled GC maintenance for agent-brain
-[heart.schedule]
-enabled = true
-cron = "0 3 * * *"
-
-# Token and WASM fuel quota controller
-[heart.token_budget]
-enabled = true
-max_tokens_per_route = 8000
-max_wasm_fuel_per_route = 10000000
-wasm_anomaly_multiplier = 4.0
-
-# Weekly memory cluster distillation
-[heart.distillation]
-enabled = true
-cron = "0 0 2 * * 0"
-threshold = 0.75
-
-# Offline self-learning critic (inspects verify_outcomes, records anti-patterns/reinforcements)
-# Can also be toggled with environment variable AUTONOMIC_SELF_LEARNING=1
-[heart.self_learning]
-enabled = true
-cron = "0 */15 * * * *"
-min_outcomes = 1
-lookback_days = 7
-
-# Nightly MLX dataset pipeline & model finetuning
-[heart.finetune]
-enabled = true
-cron = "0 0 4 * * *"
-min_merged_entries = 1
-ui_threshold = 1.0
-memory_threshold_kb = 524288
-```
-
----
-
-## Architecture & Documentation
-
-For complete architectural specifications, token bucket algorithms, and MCP tool contracts, visit the centralized documentation hub:
-- **Maintenance & Budget Guide**: [https://autonomic-ai.dev/docs/maintenance](https://autonomic-ai.dev/docs/maintenance)
-- **Ecosystem Architecture**: [https://autonomic-ai.dev/docs/architecture](https://autonomic-ai.dev/docs/architecture)
-
----
-
-## Development
+## Develop
 
 ```bash
-git clone https://github.com/autonomic-ai-dev/agent-heart.git && cd agent-heart
-cargo build --release -p agent-heart
-cargo test --release -p agent-heart
+cargo test -p agent-heart
+cargo clippy -p agent-heart -- -D warnings
 ```
 
----
-
-## License
-
-MIT
+Feature map and knowledge base: `.verify/features/` and `.verify/knowledge-base/`.
