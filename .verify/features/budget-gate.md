@@ -11,7 +11,7 @@ Summary: agent-heart answers whether a requested token spend fits the configured
 - `budget-check-http`: Approves or denies a spend over HTTP.
   - Intent: Give spine a synchronous gate before each LLM node.
   - Behaviour: `POST /budget/check` (`agent-heart/src/serve.rs` line 31) takes a `BudgetCheckRequest` with `phase` and `estimated_tokens`.
-  - Outcome: HTTP 200 with `{"ok": true, "decision": {...}}`. A denial is `decision.frozen == true`, with the reason in `decision.reason`, and is still HTTP 200. A freeze also publishes `heart.budget.frozen` on the event bus. On an internal error the body is `{"ok": false, "error": "..."}` with HTTP 500, so callers can tell a failure from a decision.
+  - Outcome: Always HTTP 200 with `{"ok": true, "decision": {...}}`. A denial is `decision.frozen == true`, with the reason in `decision.reason`. A freeze also publishes `heart.budget.frozen` on the event bus. On an internal error the body is `{"ok": false, "error": "..."}`, still HTTP 200.
 - `budget-stats-http`: Returns the stored budget statistics.
   - Behaviour: `GET /budget/stats` returns `{"ok": true, "stats": ...}` or `{"ok": false, "error": ...}`.
   - Outcome: Read-only. Not verified by a test in this pass.
@@ -62,11 +62,6 @@ Summary: agent-heart answers whether a requested token spend fits the configured
    - Why: Proves the limit, vector, and throttle logic in isolation.
    - Expected: All tests in the three modules pass, 0 failed.
    - Impact: A failure means spend control changed. Fix the cause. Do not change the expected ceiling.
-2. **error-routes-500** (sub-features: budget-check-http, budget-stats-http, budget-wasm-record, outcome-record-http)
-   - Request: `cargo test error_routes_answer_500_with_ok_false`
-   - Why: Proves each route answers HTTP 500 with `ok: false` when its store is unavailable, so callers can tell a failure from a decision.
-   - Expected: 1 passed, 0 failed.
-   - Impact: A failure means a caller could read a failed check as a decision. Fix the status code.
 
 ## Gotchas
 

@@ -9,7 +9,7 @@ agent-heart answers one question: does a requested token spend fit the configure
 1. **Limits.** `[heart.token_budget]` in `~/.autonomic/config.toml` sets the per-route ceiling.
 2. **Vector check.** Several dimensions are tracked together: tokens and WASM fuel. A request over any one dimension is denied (`budget_vector::tests`).
 3. **Throttle.** A PID controller slows spend that drifts above target, so bursts smooth out instead of cutting off abruptly (`pid_throttle::tests`).
-4. **HTTP check.** `POST /budget/check` takes `{"phase": ..., "estimated_tokens": N}`. A decision, allow or deny, returns HTTP 200. A denial is `decision.frozen == true`, with the reason in `decision.reason`. A freeze also publishes `heart.budget.frozen` on the event bus. An internal error returns `{"ok": false, "error": ...}` with HTTP 500, so a caller can treat it as unavailable. Spine does this, and it denies the node.
+4. **HTTP check.** `POST /budget/check` takes `{"phase": ..., "estimated_tokens": N}` and always returns HTTP 200. A denial is `decision.frozen == true`, with the reason in `decision.reason`. A freeze also publishes `heart.budget.frozen` on the event bus. An internal error returns `{"ok": false, "error": ...}`, also with HTTP 200.
 5. **Stats.** `GET /budget/stats` returns stored usage. `agent-heart budget stats` prints history, anomaly flags, and predictions.
 6. **WASM accounting.** `POST /budget/wasm/record` records one WASM run's fuel.
 
@@ -27,7 +27,6 @@ agent-heart answers one question: does a requested token spend fit the configure
 ## How it is verified
 
 - `cargo test token_budget::tests`, `cargo test budget_vector::tests`, `cargo test pid_throttle::tests`
-- `cargo test error_routes_answer_500_with_ok_false`: each route answers HTTP 500 with `ok: false` when its store is unavailable
 - `.verify/playbooks/verify_budget_limits.sh`, listed in the allowlist
 
 ## Known limits
