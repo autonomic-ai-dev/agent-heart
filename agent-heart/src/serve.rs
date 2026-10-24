@@ -1,5 +1,6 @@
 use axum::{
     extract::State,
+    http::StatusCode,
     routing::{get, post},
     Json, Router,
 };
@@ -70,17 +71,30 @@ async fn gc_status(State(_): State<Arc<AppState>>) -> Json<serde_json::Value> {
     }))
 }
 
-async fn budget_stats(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+type JsonReply = (StatusCode, Json<serde_json::Value>);
+
+fn reply(body: serde_json::Value) -> JsonReply {
+    (StatusCode::OK, Json(body))
+}
+
+fn failure(error: impl std::fmt::Display) -> JsonReply {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(serde_json::json!({ "ok": false, "error": error.to_string() })),
+    )
+}
+
+async fn budget_stats(State(state): State<Arc<AppState>>) -> JsonReply {
     match token_budget::load_stats(&state.config.token_budget) {
-        Ok(report) => Json(serde_json::json!({ "ok": true, "stats": report })),
-        Err(e) => Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+        Ok(report) => reply(serde_json::json!({ "ok": true, "stats": report })),
+        Err(e) => failure(e),
     }
 }
 
 async fn budget_check(
     State(state): State<Arc<AppState>>,
     Json(req): Json<BudgetCheckRequest>,
-) -> Json<serde_json::Value> {
+) -> JsonReply {
     match token_budget::check_budget(&state.config.token_budget, &req) {
         Ok(resp) => {
             if resp.frozen {
@@ -96,30 +110,30 @@ async fn budget_check(
                     )
                     .await;
             }
-            Json(serde_json::json!({ "ok": true, "decision": resp }))
+            reply(serde_json::json!({ "ok": true, "decision": resp }))
         }
-        Err(e) => Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+        Err(e) => failure(e),
     }
 }
 
 async fn wasm_record(
     State(state): State<Arc<AppState>>,
     Json(rec): Json<WasmExecutionRecord>,
-) -> Json<serde_json::Value> {
+) -> JsonReply {
     match token_budget::record_wasm_execution(&state.config.token_budget, &rec) {
-        Ok(()) => Json(serde_json::json!({"ok": true})),
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string() })),
+        Ok(()) => reply(serde_json::json!({"ok": true})),
+        Err(e) => failure(e),
     }
 }
 
 async fn outcome_record(
     State(state): State<Arc<AppState>>,
     Json(outcome): Json<crate::outcomes::ExecutionOutcome>,
-) -> Json<serde_json::Value> {
+) -> JsonReply {
     let path = token_budget::heart_db_path(&state.config.token_budget);
     match crate::outcomes::record(&path, &outcome) {
-        Ok(()) => Json(serde_json::json!({"ok": true})),
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string() })),
+        Ok(()) => reply(serde_json::json!({"ok": true})),
+        Err(e) => failure(e),
     }
 }
 
@@ -186,11 +200,91 @@ mod tests {
         assert_eq!(crate::outcomes::count(&db).unwrap(), 1);
 
         let rejected = router(state).oneshot(post("job 1")).await.unwrap();
+        assert_eq!(rejected.status(), StatusCode::INTERNAL_SERVER_ERROR);
         let bytes = axum::body::to_bytes(rejected.into_body(), usize::MAX)
             .await
             .unwrap();
         assert!(String::from_utf8_lossy(&bytes).contains("\"ok\":false"));
         assert_eq!(crate::outcomes::count(&db).unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn error_routes_answer_500_with_ok_false() {
+        let dir = std::env::temp_dir().join(format!("heart-error-routes-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let blocker = dir.join("blocker");
+        std::fs::write(&blocker, b"a file, not a directory").unwrap();
+        let mut config = Config::default();
+        config.token_budget.heart_db_path = Some(blocker.join("heart.db").display().to_string());
+        config.token_budget.brain_db_path = Some(blocker.display().to_string());
+        let state = Arc::new(AppState {
+            config,
+            spine: SpineClient::new("http://127.0.0.1:3999", "agent-heart", "test"),
+        });
+
+        let json_post = |uri: &str, body: String| {
+            Request::builder()
+                .method("POST")
+                .uri(uri)
+                .header("content-type", "application/json")
+                .body(Body::from(body))
+                .unwrap()
+        };
+        let requests = [
+            Request::builder()
+                .method("GET")
+                .uri("/budget/stats")
+                .body(Body::empty())
+                .unwrap(),
+            json_post(
+                "/budget/check",
+                r#"{"phase":"build","estimated_tokens":10}"#.to_string(),
+            ),
+            json_post(
+                "/budget/wasm/record",
+                serde_json::json!({
+                    "id": "wasm-1",
+                    "job_id": null,
+                    "organ": "agent-muscle",
+                    "fuel_consumed": 5,
+                    "memory_peak_bytes": null,
+                    "success": true,
+                    "latency_ms": 3
+                })
+                .to_string(),
+            ),
+            json_post(
+                "/outcomes/record",
+                serde_json::json!({
+                    "id": "job-error",
+                    "organ": "agent-muscle",
+                    "kind": "bash",
+                    "success": true,
+                    "exit_code": 0,
+                    "duration_ms": 5
+                })
+                .to_string(),
+            ),
+        ];
+
+        for request in requests {
+            let uri = request.uri().to_string();
+            let response = router(state.clone()).oneshot(request).await.unwrap();
+            assert_eq!(
+                response.status(),
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "{uri} must answer 500 when its store is unavailable"
+            );
+            let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap();
+            assert!(
+                String::from_utf8_lossy(&bytes).contains("\"ok\":false"),
+                "{uri} keeps the ok field"
+            );
+        }
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[tokio::test]

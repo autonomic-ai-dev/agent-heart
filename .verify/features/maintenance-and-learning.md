@@ -43,6 +43,27 @@ Summary: agent-heart runs background upkeep for the agent stack: scheduled memor
   - Behaviour: Covered by `pricing_catalog::tests`, `usage_store::tests`, `quota_parser::tests`, and MCP parameter defaults.
   - Outcome: Usage rows persist and quota headers parse into quota records.
 
+## Code
+
+- `agent-heart/src/brain_client.rs`
+- `agent-heart/src/config.rs`
+- `agent-heart/src/distillation.rs`
+- `agent-heart/src/finetune.rs`
+- `agent-heart/src/lib.rs`
+- `agent-heart/src/log.rs`
+- `agent-heart/src/lint.rs`
+- `agent-heart/src/main.rs`
+- `agent-heart/src/mcp_server.rs`
+- `agent-heart/src/outcomes.rs`
+- `agent-heart/src/pricing_catalog.rs`
+- `agent-heart/src/quota_parser.rs`
+- `agent-heart/src/scheduler.rs`
+- `agent-heart/src/self_learning.rs`
+- `agent-heart/src/update.rs`
+- `agent-heart/src/usage_schema.rs`
+- `agent-heart/src/usage_store.rs`
+- `agent-heart/Cargo.toml`
+
 ## How to get to it (user POV)
 
 - CLI: `agent-heart serve`, `agent-heart serve-mcp`, `agent-heart gc`, `agent-heart learn`, `agent-heart status`

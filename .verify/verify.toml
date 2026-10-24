@@ -1,5 +1,6 @@
 [verify]
 commands = [
+  "bash .verify/checks/route_drift.sh",
   "cargo test",
   "cargo clippy -- -D warnings",
   "cargo check",
@@ -10,3 +11,7 @@ commands = [
   ".verify/playbooks/verify_usage_engine.sh",
   ".verify/playbooks/verify_budget_limits.sh",
 ]
+
+[verify.default]
+command = ["cargo", "test"]
+timeout_secs = 600
